@@ -1,14 +1,19 @@
 ﻿#include "Characters/ADPlayerCharacter.h"
 
 #include "Camera/CameraComponent.h"
+
+#include "Combat/ADTargetingComponent.h"
+
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+
 #include "Engine/LocalPlayer.h"
+#include "InputAction.h"
+#include "InputMappingContext.h"
+
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "InputAction.h"
-#include "InputMappingContext.h"
 
 AADPlayerCharacter::AADPlayerCharacter()
 {
@@ -33,6 +38,8 @@ AADPlayerCharacter::AADPlayerCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+
+	TargetingComponent = CreateDefaultSubobject<UADTargetingComponent>(TEXT("TargetingComponenT"));
 }
 
 void AADPlayerCharacter::PawnClientRestart()
@@ -131,6 +138,36 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			&AADPlayerCharacter::StopJump
 		);
 	}
+
+	if (IsValid(SelectTargetAction))
+	{
+		EnhancedInputComponent->BindAction(
+			SelectTargetAction,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::SelectTarget);
+	}
+
+	if (IsValid(CameraLookAction))
+	{
+		EnhancedInputComponent->BindAction(
+			CameraLookAction,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::StartCameraLook);
+
+		EnhancedInputComponent->BindAction(
+			CameraLookAction,
+			ETriggerEvent::Completed,
+			this,
+			&AADPlayerCharacter::StopCameraLook);
+		
+		EnhancedInputComponent->BindAction(
+			CameraLookAction,
+			ETriggerEvent::Canceled,
+			this,
+			&AADPlayerCharacter::StopCameraLook);
+	}
 }
 
 void AADPlayerCharacter::Move(const FInputActionValue& Value)
@@ -161,16 +198,13 @@ void AADPlayerCharacter::Move(const FInputActionValue& Value)
 
 void AADPlayerCharacter::Look(const FInputActionValue& Value)
 {
+	if (!bCameraLookActive)
+	{
+		return;
+	}
+	
 	const FVector2D LookInput = Value.Get<FVector2D>();
-
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("LOOK: X=%f Y=%f"),
-		LookInput.X,
-		LookInput.Y
-	);
-
+	
 	AddControllerYawInput(LookInput.X);
 	AddControllerPitchInput(LookInput.Y);
 }
@@ -184,3 +218,48 @@ void AADPlayerCharacter::StopJump(const FInputActionValue& /*Value*/)
 {
 	StopJumping();
 }
+
+UADTargetingComponent* AADPlayerCharacter::GetTargetingComponent() const
+{
+	return TargetingComponent;
+}
+
+void AADPlayerCharacter::SelectTarget(const FInputActionValue& /*Value*/)
+{
+	if (IsValid(TargetingComponent))
+	{
+		TargetingComponent->TrySelectTargetUnderCursor();
+	}
+}
+
+void AADPlayerCharacter::StartCameraLook(const FInputActionValue& Value)
+{
+	bCameraLookActive = true;
+
+	APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	if (!IsValid(PlayerController))
+	{
+		return;
+	}
+
+	PlayerController->bShowMouseCursor = false;
+	PlayerController->SetInputMode(FInputModeGameOnly());
+}
+
+void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
+{
+	bCameraLookActive = false;
+
+	APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	if (!IsValid(PlayerController))
+	{
+		return;
+	}
+
+	PlayerController->bShowMouseCursor = true;
+
+	FInputModeGameAndUI InputMode;
+	InputMode.SetHideCursorDuringCapture(false);
+	PlayerController->SetInputMode(InputMode);
+}
+

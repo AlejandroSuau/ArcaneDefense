@@ -9,6 +9,11 @@ class UADAttributeSet;
 class UAbilitySystemComponent;
 class UGameplayEffect;
 
+/**
+ * Base class for all living characters in Arcane Defense.
+ *
+ * Player-specific input and AI-specific behavior must not be implemented here.
+ */
 UCLASS(Abstract)
 class ARCANEDEFENSE_API AADCharacterBase
 	: public ACharacter
@@ -40,6 +45,7 @@ private:
 	void InitializeAbilitySystem();
 	void ApplyInitialAttributes();
 
+	/** Coordinates abilities, effects, attributes, and gameplay tags. */
 	UPROPERTY(
 		VisibleAnywhere,
 		BlueprintReadOnly,
@@ -47,6 +53,7 @@ private:
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
 
+	/** Stores this character's shared combat attributes. */
 	UPROPERTY(
 		EditDefaultsOnly,
 		BlueprintReadOnly,
@@ -54,6 +61,7 @@ private:
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UADAttributeSet> AttributeSet;
 
+	/** Instant effect used to initialize this character's attributes. */
 	UPROPERTY(
 		EditDefaultsOnly,
 		BlueprintReadOnly,

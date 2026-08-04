@@ -9,6 +9,7 @@ class UCameraComponent;
 class UInputAction;
 class UInputMappingContext;
 class USpringArmComponent;
+class  UADTargetingComponent;
 
 /**
  * Player-controlled character.
@@ -26,6 +27,9 @@ public:
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
+	UFUNCTION(BlueprintPure, Category = "Targeting")
+	UADTargetingComponent* GetTargetingComponent() const;
+	
 protected:
 	/** Camera boom that keeps the camera behind the character. */
 	UPROPERTY(
@@ -81,9 +85,38 @@ protected:
 	)
 	TObjectPtr<UInputAction> JumpAction;
 
+	/** Selects an enemy under the mouse cursor */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> SelectTargetAction;
+
+	/** Handles enemy target selection. */
+	UPROPERTY(
+		VisibleAnywhere,
+		BlueprintReadOnly,
+		Category = "Combat",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UADTargetingComponent> TargetingComponent;
+
+	/** Enables camera rotation while held. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> CameraLookAction;
+
+	bool bCameraLookActive = false;
+
 private:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void StartJump(const FInputActionValue& Value);
 	void StopJump(const FInputActionValue& Value);
+	void SelectTarget(const FInputActionValue& Value);
+	void StartCameraLook(const FInputActionValue& Value);
+	void StopCameraLook(const FInputActionValue& Value);
 };

@@ -34,21 +34,25 @@ public:
 	) override;
 
 protected:
+	/** Current health. Reaching zero will eventually cause death. */
 	UPROPERTY(
 		BlueprintReadOnly,
 		Category = "Attributes|Health")
 	FGameplayAttributeData Health;
 
+	/** Maximum health value. */
 	UPROPERTY(
 		BlueprintReadOnly,
 		Category="Attributes|Health")
 	FGameplayAttributeData MaxHealth;
 
+	/** Current mana available for ability costs. */
 	UPROPERTY(
 		BlueprintReadOnly,
 		Category = "Attributes|Mana")
 	FGameplayAttributeData Mana;
 
+	/** Maximum mana value. */
 	UPROPERTY(
 		BlueprintReadOnly,
 		Category = "Attributes|Mana")
