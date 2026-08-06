@@ -6,10 +6,12 @@
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-
-#include "Engine/LocalPlayer.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayAbilitySpec.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
+
+#include "Engine/LocalPlayer.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -168,6 +170,15 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			this,
 			&AADPlayerCharacter::StopCameraLook);
 	}
+
+	if (IsValid(Ability1Action))
+	{
+		EnhancedInputComponent->BindAction(
+			Ability1Action,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::ActivateAbility1);
+	}
 }
 
 void AADPlayerCharacter::Move(const FInputActionValue& Value)
@@ -224,6 +235,33 @@ UADTargetingComponent* AADPlayerCharacter::GetTargetingComponent() const
 	return TargetingComponent;
 }
 
+void AADPlayerCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (!HasAuthority()
+		|| !IsValid(AbilitySystem)
+		|| !Ability1Class)
+	{
+		return;
+	}
+
+	const  FGameplayAbilitySpec AbilitySpec(
+		Ability1Class,
+		1,
+		INDEX_NONE,
+		this);
+	AbilitySystem->GiveAbility(AbilitySpec);
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("%s was granted  ability %s."),
+		*GetNameSafe(this),
+		*GetNameSafe(Ability1Class));
+}
+
 void AADPlayerCharacter::SelectTarget(const FInputActionValue& /*Value*/)
 {
 	if (IsValid(TargetingComponent))
@@ -261,5 +299,26 @@ void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
 	FInputModeGameAndUI InputMode;
 	InputMode.SetHideCursorDuringCapture(false);
 	PlayerController->SetInputMode(InputMode);
+}
+
+void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
+{
+	UAbilitySystemComponent*  AbilitySystem = GetAbilitySystemComponent();
+	if (!IsValid(AbilitySystem) || !Ability1Class)
+	{
+		return;
+	}
+
+	const bool bActivationStarted = AbilitySystem->TryActivateAbilityByClass(
+		Ability1Class, true);
+	if (!bActivationStarted)
+	{
+		UE_LOG(
+			LogTemp,
+			Verbose,
+			TEXT("%s  could not activate ability %s."),
+			*GetNameSafe(this),
+			*GetNameSafe(Ability1Class));
+	}
 }
 

@@ -9,7 +9,8 @@ class UCameraComponent;
 class UInputAction;
 class UInputMappingContext;
 class USpringArmComponent;
-class  UADTargetingComponent;
+class UADTargetingComponent;
+class UGameplayAbility;
 
 /**
  * Player-controlled character.
@@ -31,6 +32,8 @@ public:
 	UADTargetingComponent* GetTargetingComponent() const;
 	
 protected:
+	virtual void BeginPlay() override;
+		
 	/** Camera boom that keeps the camera behind the character. */
 	UPROPERTY(
 		VisibleAnywhere,
@@ -92,6 +95,14 @@ protected:
 		Category = "Input",
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> SelectTargetAction;
+	
+	/** Enables camera rotation while held. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> CameraLookAction;
 
 	/** Handles enemy target selection. */
 	UPROPERTY(
@@ -100,14 +111,22 @@ protected:
 		Category = "Combat",
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UADTargetingComponent> TargetingComponent;
-
-	/** Enables camera rotation while held. */
+		
+	/** Activates the first gameplay ability slot. */
 	UPROPERTY(
 		EditDefaultsOnly,
 		BlueprintReadOnly,
 		Category = "Input",
 		meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UInputAction> CameraLookAction;
+	TObjectPtr<UInputAction> Ability1Action;
+
+	/** Ability granted and activated through the first ability slot. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Abilities",
+		meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayAbility> Ability1Class;
 
 	bool bCameraLookActive = false;
 
@@ -119,4 +138,5 @@ private:
 	void SelectTarget(const FInputActionValue& Value);
 	void StartCameraLook(const FInputActionValue& Value);
 	void StopCameraLook(const FInputActionValue& Value);
+	void ActivateAbility1(const FInputActionValue& Value);
 };

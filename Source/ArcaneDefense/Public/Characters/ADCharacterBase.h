@@ -26,6 +26,13 @@ public:
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
+	/**
+	 * Enters the character death state.
+	 *
+	 * Called by the Attribute Set when Health reaches zero.
+	 */
+	virtual void HandleDeath();
+
 	UFUNCTION(BlueprintPure, Category = "Attributes")
 	float GetHealth() const;
 
@@ -38,8 +45,24 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Attributes")
 	float GetMaxMana() const;
 
+	/**
+	 * Returns whether this character has entered its death state.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	bool IsDead() const;
+
 protected:
 	virtual void BeginPlay() override;
+
+	/**
+	 * Allows Blueprint children to provide death presentation.
+	 */
+	UFUNCTION(
+		BlueprintImplementableEvent,
+		Category = "Combat",
+		meta = (DisplayName = "Death")
+	)
+	void ReceiveDeath();
 
 private:
 	void InitializeAbilitySystem();
@@ -68,4 +91,11 @@ private:
 		Category = "Attributes",
 		meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UGameplayEffect> InitialAttributesEffect;
+
+	UPROPERTY(
+		VisibleInstanceOnly,
+		BlueprintReadOnly,
+		Category = "Combat",
+		meta = (AllowPrivateAccess = "true"))
+	bool bIsDead = false;
 };

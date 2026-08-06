@@ -1,7 +1,8 @@
 ﻿#include "Characters/ADCharacterBase.h"
 
 #include "AbilitySystem/ADAttributeSet.h"
-
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 AADCharacterBase::AADCharacterBase()
 {
@@ -37,6 +38,30 @@ UAbilitySystemComponent* AADCharacterBase::GetAbilitySystemComponent() const
 	return AbilitySystemComponent;
 }
 
+void AADCharacterBase::HandleDeath()
+{
+	if (bIsDead) { return; }
+
+	bIsDead = true;
+	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+	{
+		MovementComponent->DisableMovement();
+	}
+
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("%s entered the death state."),
+		*GetNameSafe(this));
+
+	ReceiveDeath();
+}
+
 float AADCharacterBase::GetHealth() const
 {
 	return IsValid(AttributeSet) ? AttributeSet->GetHealth() : 0.f;
@@ -55,6 +80,11 @@ float AADCharacterBase::GetMana() const
 float AADCharacterBase::GetMaxMana() const
 {
 	return IsValid(AttributeSet) ? AttributeSet->GetMaxMana() : 0.f;
+}
+
+bool AADCharacterBase::IsDead() const
+{
+	return bIsDead;
 }
 
 void AADCharacterBase::InitializeAbilitySystem()

@@ -17,6 +17,8 @@ class ARCANEDEFENSE_API AADEnemyCharacter : public AADCharacterBase
 	GENERATED_BODY()
 
 public:
+	virtual void HandleDeath() override;
+	
 	/**
 	 * Changes whether this enemy is currently selected by the player.
 	 */
