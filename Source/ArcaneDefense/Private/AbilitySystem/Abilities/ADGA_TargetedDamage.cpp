@@ -1,10 +1,24 @@
 #include "AbilitySystem/Abilities/ADGA_TargetedDamage.h"
 
+#include "Abilities/Tasks/AbilityTask_WaitDelay.h"
+
 #include "AbilitySystemComponent.h"
 #include "Characters/ADCharacterBase.h"
 #include "Characters/ADEnemyCharacter.h"
 #include "Combat/ADTargetingComponent.h"
+#include "Combat/ADCastComponent.h"
 #include "GameplayEffect.h"
+
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
+
+UADGA_TargetedDamage::UADGA_TargetedDamage()
+{
+	CastDisplayName = NSLOCTEXT(
+		"ArcaneDefense",
+		"DefaultTargetedSpellName",
+		"Spell");
+}
 
 bool UADGA_TargetedDamage::CanActivateAbility(
 	const FGameplayAbilitySpecHandle Handle,
@@ -22,6 +36,18 @@ bool UADGA_TargetedDamage::CanActivateAbility(
 	{
 		return false;
 	}
+
+	const ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+	if (!IsValid(Character))
+	{
+		return false;
+	}
+
+	const UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement();
+	if (IsValid(MovementComponent) && MovementComponent->IsFalling())
+	{
+		return false;
+	}
 	
 	return IsValid(GetValidTarget(ActorInfo));
 }
@@ -32,68 +58,128 @@ void UADGA_TargetedDamage::ActivateAbility(
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	const FGameplayEventData* TriggerEventData)
 {
-	AADEnemyCharacter* Target  =  GetValidTarget(ActorInfo);
+	AADEnemyCharacter* Target = GetValidTarget(ActorInfo);
 	if (!IsValid(Target))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	UAbilitySystemComponent* TargetAbilitySystem = Target->GetAbilitySystemComponent();
-	if (!ensureMsgf(
-		IsValid(TargetAbilitySystem),
-		TEXT("%s does not have a valid Ability System Component."),
-		*GetNameSafe(Target)))
+	AActor* AvatarActor = (ActorInfo == nullptr) ? nullptr : ActorInfo->AvatarActor.Get();
+	if (!IsValid(AvatarActor))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
+	UADCastComponent* CastComponent = AvatarActor->FindComponentByClass<UADCastComponent>();
 	if (!ensureMsgf(
-		DamageEffectClass != nullptr,
-		TEXT("%s does not have a DamageEffect class."),
+		IsValid(CastComponent),
+		TEXT("%s requires an AD Cast Component"),
+		*GetNameSafe(AvatarActor)))
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	CachedTarget = Target;
+	CachedCastComponent = CastComponent;
+
+	if (CastTime <= 0.f)
+	{
+		HandleCastFinished();
+		return;
+	}
+
+	CastComponent->StartCast(CastDisplayName, CastTime);
+
+	UAbilityTask_WaitDelay* WaitTask = UAbilityTask_WaitDelay::WaitDelay(this, CastTime);
+	if (!ensureMsgf(IsValid(WaitTask),
+		TEXT("%s failed to create its cast wait task."),
 		*GetNameSafe(this)))
 	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		EndCurrentAbility(true);
 		return;
 	}
 
-	const FGameplayEffectSpecHandle DamageSpec
-		= MakeOutgoingGameplayEffectSpec(
-			DamageEffectClass,
-			GetAbilityLevel());
-	if (!ensureMsgf(
-		DamageSpec.IsValid(),
-		TEXT("%s failed to create its dammage effect spec."),
-		*GetNameSafe(this)))
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
+	WaitTask->OnFinish.AddDynamic(this, &UADGA_TargetedDamage::HandleCastFinished);
 
-	// Commit applies the configured cost and coldown.
-	if (!CommitAbility(
-		Handle, ActorInfo, ActivationInfo))
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	TargetAbilitySystem->ApplyGameplayEffectSpecToSelf(
-		*DamageSpec.Data.Get());
-	const AADCharacterBase* SourceCharacter =
-		ActorInfo != nullptr
-			? Cast<AADCharacterBase>(ActorInfo->AvatarActor.Get())
-			: nullptr;
+	WaitTask->ReadyForActivation();
 	
 	UE_LOG(
 		LogTemp,
 		Display,
+		TEXT("%s started casting %s. on %s for %.2f seconds."),
+		*GetNameSafe(AvatarActor),
+		*CastDisplayName.ToString(),
+		*GetNameSafe(Target),
+		CastTime);
+}
+
+void UADGA_TargetedDamage::HandleCastFinished()
+{
+	if (!IsActive()) { return; }
+
+	const FGameplayAbilityActorInfo* ActorInfo = GetCurrentActorInfo();
+	if (!ActorInfo)
+	{
+		EndCurrentAbility(true);
+		return;
+	}
+
+	AActor* AvatarActor = ActorInfo->AvatarActor.Get();
+	AADEnemyCharacter* Target = CachedTarget.Get();
+	if (!IsValid(AvatarActor) ||
+		!IsValid(Target) ||
+		Target->IsDead() ||
+		!IsTargetInRange(AvatarActor, Target))
+	{
+		EndCurrentAbility(true);
+		return;
+	}
+
+	UAbilitySystemComponent* TargetAbilitySystem = Target->GetAbilitySystemComponent();
+	if (!IsValid(TargetAbilitySystem) || !DamageEffectClass)
+	{
+		EndCurrentAbility(true);
+		return;
+	}
+
+	const FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(
+		DamageEffectClass,
+		GetAbilityLevel());
+	if (!DamageSpec.IsValid())
+	{
+		EndCurrentAbility(true);
+		return;
+	}
+
+	/*
+	 * The final resource check and mana cost occur after the cast.
+	 * Interrupted casts therefore do not consume mana.
+	 */
+	if (!CommitAbility(
+		GetCurrentAbilitySpecHandle(),
+		ActorInfo,
+		GetCurrentActivationInfo()))
+	{
+		EndCurrentAbility(true);
+		return;
+	}
+
+	TargetAbilitySystem->ApplyGameplayEffectSpecToSelf(*DamageSpec.Data.Get());
+
+	const AADCharacterBase* SourceCharacter = Cast<AADCharacterBase>(AvatarActor);
+
+	UE_LOG(
+		LogTemp,
+		Display,
 		TEXT(
-			"%s hit %s. Target Health: %.0f/%.0f. Caster Mana: %.0f/%.0f."
+			"%s completed %s. Target Health: %.0f/%.0f. "
+			"Caster Mana: %.0f/%.0f."
 		),
 		*GetNameSafe(SourceCharacter),
-		*GetNameSafe(Target),
+		*CastDisplayName.ToString(),
 		Target->GetHealth(),
 		Target->GetMaxHealth(),
 		IsValid(SourceCharacter)
@@ -104,14 +190,32 @@ void UADGA_TargetedDamage::ActivateAbility(
 			: 0.0f
 	);
 
-	EndAbility(
+	EndCurrentAbility(false);
+}
+
+void UADGA_TargetedDamage::EndAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	bool bReplicateEndAbility,
+	bool bWasCancelled)
+{
+	if (UADCastComponent* CastComponent = CachedCastComponent.Get())
+	{
+		CastComponent->EndCast(bWasCancelled);
+	}
+
+	CachedTarget.Reset();
+	CachedCastComponent.Reset();
+
+	Super::EndAbility(
 		Handle,
 		ActorInfo,
 		ActivationInfo,
-		true,
-		false
-	);
+		bReplicateEndAbility,
+		bWasCancelled);
 }
+
 
 AADEnemyCharacter* UADGA_TargetedDamage::GetValidTarget(
 	const FGameplayAbilityActorInfo* ActorInfo) const
@@ -135,7 +239,9 @@ AADEnemyCharacter* UADGA_TargetedDamage::GetValidTarget(
 	}
 
 	AADEnemyCharacter* Target = TargetingComponent->GetCurrentTarget();
-	if (!IsValid(Target) || Target->IsDead())
+	if (!IsValid(Target) ||
+		Target->IsDead() ||
+		!IsTargetInRange(AvatarActor, Target))
 	{
 		return nullptr;
 	}
@@ -154,4 +260,20 @@ bool UADGA_TargetedDamage::IsTargetInRange(const AActor* SourceActor, const AAct
 		SourceActor->GetActorLocation(),
 		TargetActor->GetActorLocation());
 	return DistanceSquared <= FMath::Square(MaxRange);
+}
+
+void UADGA_TargetedDamage::EndCurrentAbility(const bool bWasCancelled)
+{
+	const FGameplayAbilityActorInfo* ActorInfo = GetCurrentActorInfo();
+	if (!ActorInfo)
+	{
+		return;
+	}
+
+	EndAbility(
+		GetCurrentAbilitySpecHandle(),
+		ActorInfo,
+		GetCurrentActivationInfo(),
+		true,
+		bWasCancelled);
 }

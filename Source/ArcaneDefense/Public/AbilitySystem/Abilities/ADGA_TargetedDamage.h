@@ -7,17 +7,21 @@
 #include "ADGA_TargetedDamage.generated.h"
 
 class AADEnemyCharacter;
+class UADCastComponent;
 class UGameplayEffect;
 
 /**
- * Instant targeted ability that applies a damage Gameplay Effect
- * to the player's currently selected enemy.
+ * Targeted ability that waits for a configurable cast time before
+ * applying a damage Gameplay Effect to its captured target.
  */
 UCLASS(Abstract, Blueprintable)
 class ARCANEDEFENSE_API UADGA_TargetedDamage : public UADGameplayAbility
 {
 	GENERATED_BODY()
 
+public:
+	UADGA_TargetedDamage();
+	
 protected:
 	virtual bool CanActivateAbility(
 		const FGameplayAbilitySpecHandle Handle,
@@ -31,6 +35,14 @@ protected:
 		const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo,
 		const FGameplayEventData* TriggerEventData) override;
+
+	virtual void EndAbility(
+		const FGameplayAbilitySpecHandle Handle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo,
+		bool bReplicateEndAbility,
+		bool bWasCancelled
+	) override;
 
 	/** Effect applied to the selected target after committing the ability. */
 	UPROPERTY(
@@ -48,11 +60,34 @@ protected:
 	)
 	float MaxRange = 2000.0f;
 
+	/** Time required to complete the ability. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Ability|Casting",
+		meta = (ClampMin = "0.0", Units = "s"))
+	float  CastTime = 1.5f;
+
+	/** Name presented by the cast bar. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Ability|Casting")
+	FText CastDisplayName;
+
 private:
+	UFUNCTION()
+	void HandleCastFinished();
+	
 	AADEnemyCharacter* GetValidTarget(
 		const FGameplayAbilityActorInfo* ActorInfo) const;
 
 	bool IsTargetInRange(
 		const AActor* SourceActor,
 		const AActor* TargetActor) const;
+
+	void EndCurrentAbility(bool bWasCancelled);
+
+	TWeakObjectPtr<AADEnemyCharacter> CachedTarget;
+	TWeakObjectPtr<UADCastComponent> CachedCastComponent;
 };

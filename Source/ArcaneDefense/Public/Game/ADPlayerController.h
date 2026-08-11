@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerController.h"
 #include "ADPlayerController.generated.h"
 
+class  UUserWidget;
+
 /**
  * Player controller used by the local Arcane Defense player.
  */
@@ -19,4 +21,16 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+private:
+	/** Root widget created for the local player. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "UI",
+		meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UUserWidget> PlayerHUDClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> PlayerHUDWidget;
 };

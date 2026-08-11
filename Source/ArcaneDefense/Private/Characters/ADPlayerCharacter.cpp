@@ -3,6 +3,7 @@
 #include "Camera/CameraComponent.h"
 
 #include "Combat/ADTargetingComponent.h"
+#include "Combat/ADCastComponent.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -16,6 +17,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+
+#include "AbilitySystem/ADGameplayTags.h"
 
 AADPlayerCharacter::AADPlayerCharacter()
 {
@@ -41,7 +44,8 @@ AADPlayerCharacter::AADPlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
-	TargetingComponent = CreateDefaultSubobject<UADTargetingComponent>(TEXT("TargetingComponenT"));
+	TargetingComponent = CreateDefaultSubobject<UADTargetingComponent>(TEXT("TargetingComponent"));
+	CastComponent = CreateDefaultSubobject<UADCastComponent>(TEXT("CastComponent"));
 }
 
 void AADPlayerCharacter::PawnClientRestart()
@@ -190,6 +194,11 @@ void AADPlayerCharacter::Move(const FInputActionValue& Value)
 
 	const FVector2D MovementInput = Value.Get<FVector2D>();
 
+	if (!MovementInput.IsNearlyZero())
+	{
+		CancelAbilitiesInterruptedByMovement();
+	}
+	
 	const FRotator ControlRotation = Controller->GetControlRotation();
 	const FRotator YawRotation(
 		0.0f,
@@ -222,6 +231,8 @@ void AADPlayerCharacter::Look(const FInputActionValue& Value)
 
 void AADPlayerCharacter::StartJump(const FInputActionValue& /*Value*/)
 {
+	CancelAbilitiesInterruptedByMovement();
+	
 	Jump();
 }
 
@@ -233,6 +244,11 @@ void AADPlayerCharacter::StopJump(const FInputActionValue& /*Value*/)
 UADTargetingComponent* AADPlayerCharacter::GetTargetingComponent() const
 {
 	return TargetingComponent;
+}
+
+UADCastComponent* AADPlayerCharacter::GetCastComponent() const
+{
+	return CastComponent;
 }
 
 void AADPlayerCharacter::BeginPlay()
@@ -319,6 +335,18 @@ void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 			TEXT("%s  could not activate ability %s."),
 			*GetNameSafe(this),
 			*GetNameSafe(Ability1Class));
+	}
+}
+
+void AADPlayerCharacter::CancelAbilitiesInterruptedByMovement()
+{
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
+	if (IsValid(AbilitySystem) &&
+		AbilitySystem->HasMatchingGameplayTag(ADGameplayTags::State_Casting))
+	{
+		FGameplayTagContainer AbilitiesToCancel;
+		AbilitiesToCancel.AddTag(ADGameplayTags::Ability_CancelOnMovement);
+		AbilitySystem->CancelAbilities(&AbilitiesToCancel, nullptr, nullptr);
 	}
 }
 

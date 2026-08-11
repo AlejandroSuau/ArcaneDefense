@@ -11,6 +11,7 @@ class UInputMappingContext;
 class USpringArmComponent;
 class UADTargetingComponent;
 class UGameplayAbility;
+class UADCastComponent;
 
 /**
  * Player-controlled character.
@@ -30,6 +31,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Targeting")
 	UADTargetingComponent* GetTargetingComponent() const;
+
+	UFUNCTION(BlueprintPure, Category = "Combat|Casting")
+	UADCastComponent* GetCastComponent() const;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -111,6 +115,14 @@ protected:
 		Category = "Combat",
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UADTargetingComponent> TargetingComponent;
+
+	/** Exposes active cast information to UI and presentation systems. */
+	UPROPERTY(
+		VisibleAnywhere,
+		BlueprintReadOnly,
+		Category = "Combat",
+		meta = (AllowPrivvateAccess = "true"))
+	TObjectPtr<UADCastComponent> CastComponent;
 		
 	/** Activates the first gameplay ability slot. */
 	UPROPERTY(
@@ -139,4 +151,5 @@ private:
 	void StartCameraLook(const FInputActionValue& Value);
 	void StopCameraLook(const FInputActionValue& Value);
 	void ActivateAbility1(const FInputActionValue& Value);
+	void CancelAbilitiesInterruptedByMovement();
 };
