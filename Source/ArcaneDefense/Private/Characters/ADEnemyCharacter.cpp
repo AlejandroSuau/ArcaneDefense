@@ -1,5 +1,13 @@
 #include "Characters/ADEnemyCharacter.h"
 
+#include "AI/ADEnemyAIController.h"
+
+AADEnemyCharacter::AADEnemyCharacter()
+{
+	AIControllerClass = AADEnemyAIController::StaticClass();
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+}
+
 void AADEnemyCharacter::HandleDeath()
 {
 	if (IsDead())
@@ -31,3 +39,17 @@ bool AADEnemyCharacter::IsTargeted() const
 	return  bIsTargeted;
 }
 
+void AADEnemyCharacter::SetMoveTarget(AActor* NewMoveTarget)
+{
+	MoveTarget = NewMoveTarget;
+	AADEnemyAIController* EnemyController = Cast<AADEnemyAIController>(GetController());
+	if (IsValid(EnemyController))
+	{
+		EnemyController->SetMoveTarget(MoveTarget);
+	}
+}
+
+AActor* AADEnemyCharacter::GetMoveTarget() const
+{
+	return MoveTarget;
+}
