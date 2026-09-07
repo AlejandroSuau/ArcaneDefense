@@ -20,6 +20,14 @@ void AADCharacterBase::BeginPlay()
 	Super::BeginPlay();
 
 	InitializeAbilitySystem();
+
+	if (IsValid(AttributeSet))
+	{
+		AttributeSet->OnOutOfHealth.AddUObject(
+			this,
+			&AADCharacterBase::HandleDeath);
+	}
+	
 	ApplyInitialAttributes();
 
 	UE_LOG(

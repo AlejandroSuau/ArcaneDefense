@@ -115,4 +115,12 @@ void AADEnemyAIController::OnMoveCompleted(
 		*GetNameSafe(GetPawn()),
 		*Result.ToString()
 	);
+
+	if (!Result.IsSuccess()) { return; }
+
+	AADEnemyCharacter* Enemy = Cast<AADEnemyCharacter>(GetPawn());
+	if (IsValid(Enemy))
+	{
+		Enemy->HandleReachedMoveTarget();
+	}
 }

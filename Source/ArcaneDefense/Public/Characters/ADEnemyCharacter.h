@@ -6,6 +6,9 @@
 #include "Characters/ADCharacterBase.h"
 #include "ADEnemyCharacter.generated.h"
 
+class AADDefenseObjective;
+class UGameplayEffect;
+
 /**
  * Base class for enemy characters.
  *
@@ -18,7 +21,13 @@ class ARCANEDEFENSE_API AADEnemyCharacter : public AADCharacterBase
 
 public:
 	AADEnemyCharacter();
+
 	virtual void HandleDeath() override;
+	
+	/**
+	 * Called by the AI controller when navigation reaches its goal.
+	 */
+	void HandleReachedMoveTarget();
 	
 	/**
 	 * Changes whether this enemy is currently selected by the player.
@@ -55,6 +64,32 @@ protected:
 	void ReceiveTargetedStateChanged(bool bNewTargeted);
 
 private:
+	void StartAttackingObjective(AADDefenseObjective* Objective);
+	void StopAttackingObjective();
+	void AttackObjective();
+
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Combat|Objective",
+		meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayEffect> ObjectiveDamageEffect;
+
+	FTimerHandle ObjectiveAttackTimerHandle;
+
+	TWeakObjectPtr<AADDefenseObjective> ObjectiveBeingAttacked;
+	
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Combat|Objective",
+		meta = (
+			AllowPrivateAccess = "true",
+			ClampMin = "0.1",
+			Units = "s"
+		))
+	float ObjectiveAttackInterval = 1.0f;
+	
 	UPROPERTY(
 		VisibleInstanceOnly,
 		BlueprintReadOnly,

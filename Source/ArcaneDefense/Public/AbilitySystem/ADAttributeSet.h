@@ -16,6 +16,8 @@
 	GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName) \
 	GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)
 
+DECLARE_MULTICAST_DELEGATE(FADOutOfHealthSignature)
+
 /**
  * Contains the shared combat attributes used by Arcane Defense characters.
  */
@@ -30,9 +32,13 @@ public:
 		float& NewValue) override;
 
 	virtual void PostGameplayEffectExecute(
-		const FGameplayEffectModCallbackData& Data
-	) override;
+		const FGameplayEffectModCallbackData& Data) override;
 
+	/**
+	 * Broadcast when Health reaches zero after a Gameplay Effect.
+	 */
+	FADOutOfHealthSignature OnOutOfHealth;
+	
 protected:
 	/** Current health. Reaching zero will eventually cause death. */
 	UPROPERTY(

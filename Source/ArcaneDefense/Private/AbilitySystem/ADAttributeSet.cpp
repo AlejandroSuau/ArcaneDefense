@@ -2,7 +2,6 @@
 
 #include "GameplayEffectExtension.h"
 #include "AbilitySystemComponent.h"
-#include "Characters/ADCharacterBase.h"
 
 void UADAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
@@ -27,16 +26,7 @@ void UADAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 			FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
 		if (GetHealth() == 0.f)
 		{
-			UAbilitySystemComponent* OwningAbilitySystem =
-				GetOwningAbilitySystemComponent();
-
-			AADCharacterBase* Character = IsValid(OwningAbilitySystem)
-				? Cast<AADCharacterBase>(OwningAbilitySystem->GetAvatarActor())
-				: nullptr;
-			if (IsValid(Character))
-			{
-				Character->HandleDeath();
-			}
+			OnOutOfHealth.Broadcast();
 		}
 		
 	} else if (Data.EvaluatedData.Attribute == GetManaAttribute())
