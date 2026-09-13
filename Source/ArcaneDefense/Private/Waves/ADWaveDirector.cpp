@@ -1,5 +1,6 @@
 #include "Waves/ADWaveDirector.h"
 
+#include "Game/ADGameMode.h"
 #include "Characters/ADEnemyCharacter.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -18,27 +19,43 @@ void AADWaveDirector::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (IsValid(DefenseObjective))
+	{
+		DefenseObjective->OnObjectiveDefeated.AddUniqueDynamic(
+			this,
+			&AADWaveDirector::HandleObjectiveDefeated);
+	}
+
 	if (bAutoStartFirstWave)
 	{
 		StartWave(0);
 	}
 }
 
-void AADWaveDirector::StartWave(
-	const int32 WaveIndex
-)
+void AADWaveDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (bIsSpawningWave)
+	GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
+	GetWorldTimerManager().ClearTimer(GroupDelayTimerHandle);
+	GetWorldTimerManager().ClearTimer(NextWaveTimerHandle);
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void AADWaveDirector::StartWave(const int32 WaveIndex)
+{
+	if (bWaveSystemStopped)	{ return; }
+
+	if (bWaveInProgress)
 	{
 		UE_LOG(
 			LogTemp,
 			Warning,
 			TEXT(
-				"%s cannot start Wave %d because another wave "
-				"is currently spawning."
+				"Cannot start Wave %d because "
+				"Wave %d is still in progress."
 			),
-			*GetNameSafe(this),
-			WaveIndex
+			WaveIndex + 1,
+			CurrentWaveIndex + 1
 		);
 
 		return;
@@ -53,22 +70,22 @@ void AADWaveDirector::StartWave(
 				"%s does not contain Wave %d."
 			),
 			*GetNameSafe(this),
-			WaveIndex
+			WaveIndex + 1
 		);
 
 		return;
 	}
 
-	if (!IsValid(Waves[WaveIndex]))
+	UADWaveDataAsset* Wave = Waves[WaveIndex];
+	if (!IsValid(Wave))
 	{
 		UE_LOG(
 			LogTemp,
 			Error,
 			TEXT(
-				"Wave %d is not configured on %s."
+				"Wave %d is not configured."
 			),
-			WaveIndex,
-			*GetNameSafe(this)
+			WaveIndex + 1
 		);
 
 		return;
@@ -80,7 +97,7 @@ void AADWaveDirector::StartWave(
 			LogTemp,
 			Error,
 			TEXT(
-				"%s does not have a Defense Objective."
+				"%s has no Defense Objective."
 			),
 			*GetNameSafe(this)
 		);
@@ -88,15 +105,17 @@ void AADWaveDirector::StartWave(
 		return;
 	}
 
-	if (Waves[WaveIndex]->SpawnGroups.IsEmpty())
+	if (DefenseObjective->IsDefeated()) { return; }
+
+	if (Wave->SpawnGroups.IsEmpty())
 	{
 		UE_LOG(
 			LogTemp,
-			Warning,
+			Error,
 			TEXT(
-				"Wave %d does not contain any spawn groups."
+				"Wave %d contains no spawn groups."
 			),
-			WaveIndex
+			WaveIndex + 1
 		);
 
 		return;
@@ -104,13 +123,24 @@ void AADWaveDirector::StartWave(
 
 	CurrentWaveIndex = WaveIndex;
 	CurrentGroupIndex = 0;
+
 	SpawnedEnemiesInCurrentGroup = 0;
+
+	ActiveEnemies.Reset();
+
+	bWaveInProgress = true;
 	bIsSpawningWave = true;
+
+	OnAliveEnemyCountChanged.Broadcast(0);
+
+	OnWaveStarted.Broadcast(CurrentWaveIndex + 1);
 
 	UE_LOG(
 		LogTemp,
 		Display,
-		TEXT("Starting Wave %d."),
+		TEXT(
+			"========== WAVE %d STARTED =========="
+		),
 		CurrentWaveIndex + 1
 	);
 
@@ -204,39 +234,38 @@ void AADWaveDirector::SpawnNextEnemy()
 	AADSpawnPoint* SpawnPoint = FindSpawnPoint(SpawnGroup.SpawnPointId);
 	if (!IsValid(SpawnPoint))
 	{
-		GetWorldTimerManager().ClearTimer(
-			SpawnTimerHandle
-		);
+		GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
 
 		FinishCurrentGroup();
 		return;
 	}
 
 	AADEnemyCharacter* Enemy = SpawnEnemy(SpawnGroup, *SpawnPoint);
-
-	if (IsValid(Enemy))
+	if (!IsValid(Enemy))
 	{
-		++SpawnedEnemiesInCurrentGroup;
-
 		UE_LOG(
 			LogTemp,
-			Display,
+			Error,
 			TEXT(
-				"Wave %d Group %d spawned %s (%d/%d)."
+				"Wave %d Group %d failed to spawn an enemy. "
+				"Aborting this spawn group."
 			),
 			CurrentWaveIndex + 1,
-			CurrentGroupIndex + 1,
-			*GetNameSafe(Enemy),
-			SpawnedEnemiesInCurrentGroup,
-			SpawnGroup.Quantity
+			CurrentGroupIndex + 1
 		);
+
+		GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
+
+		FinishCurrentGroup();
+
+		return;
 	}
+	
+	++SpawnedEnemiesInCurrentGroup;
 
 	if (SpawnedEnemiesInCurrentGroup >= SpawnGroup.Quantity)
 	{
-		GetWorldTimerManager().ClearTimer(
-			SpawnTimerHandle
-		);
+		GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
 
 		FinishCurrentGroup();
 	}
@@ -293,24 +322,23 @@ void AADWaveDirector::AdvanceToNextGroup()
 
 void AADWaveDirector::FinishSpawningCurrentWave()
 {
-	GetWorldTimerManager().ClearTimer(
-		SpawnTimerHandle
-	);
+	GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
+	GetWorldTimerManager().ClearTimer(GroupDelayTimerHandle);
 
-	GetWorldTimerManager().ClearTimer(
-		GroupDelayTimerHandle
-	);
+	bIsSpawningWave = false;
 
 	UE_LOG(
 		LogTemp,
 		Display,
 		TEXT(
-			"Wave %d has finished spawning."
+			"Wave %d has finished spawning. "
+			"Alive enemies: %d."
 		),
-		CurrentWaveIndex + 1
+		CurrentWaveIndex + 1,
+		ActiveEnemies.Num()
 	);
 
-	bIsSpawningWave = false;
+	TryCompleteCurrentWave();
 }
 
 AADSpawnPoint* AADWaveDirector::FindSpawnPoint(const FName SpawnPointId) const
@@ -370,7 +398,194 @@ AADEnemyCharacter* AADWaveDirector::SpawnEnemy(
 	 */
 	Enemy->SetMoveTarget(DefenseObjective);
 
+	RegisterSpawnedEnemy(Enemy);
+	
 	UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
 
 	return Enemy;
+}
+
+void AADWaveDirector::RegisterSpawnedEnemy(AADEnemyCharacter* Enemy)
+{
+	if (!IsValid(Enemy)) { return; }
+
+	ActiveEnemies.Add(Enemy);
+
+	Enemy->OnEnemyDefeated.AddUObject(this,	&AADWaveDirector::HandleEnemyDefeated);
+
+	OnAliveEnemyCountChanged.Broadcast(ActiveEnemies.Num());
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("Enemy registered. Alive enemies: %d."),
+		ActiveEnemies.Num()
+	);
+}
+
+void AADWaveDirector::HandleEnemyDefeated(AADEnemyCharacter* Enemy)
+{
+	if (!Enemy) { return; }
+
+	const TWeakObjectPtr<AADEnemyCharacter>
+		EnemyReference(Enemy);
+
+	const int32 RemovedCount = ActiveEnemies.Remove(EnemyReference);
+	if (RemovedCount == 0) { return; }
+
+	Enemy->OnEnemyDefeated.RemoveAll(this);
+
+	OnAliveEnemyCountChanged.Broadcast(ActiveEnemies.Num());
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT(
+			"%s defeated. Alive enemies: %d."
+		),
+		*GetNameSafe(Enemy),
+		ActiveEnemies.Num()
+	);
+
+	TryCompleteCurrentWave();
+}
+
+void AADWaveDirector::TryCompleteCurrentWave()
+{
+	if (bWaveSystemStopped
+		|| !bWaveInProgress
+		|| bIsSpawningWave
+		|| !ActiveEnemies.IsEmpty())
+	{
+		return;
+	}
+	
+	const int32 CompletedWaveNumber =CurrentWaveIndex + 1;
+
+	bWaveInProgress = false;
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT(
+			"========== WAVE %d COMPLETED =========="
+		),
+		CompletedWaveNumber
+	);
+
+	OnWaveCompleted.Broadcast(CompletedWaveNumber);
+
+	if (Waves.IsValidIndex(CurrentWaveIndex + 1))
+	{
+		ScheduleNextWave();
+		return;
+	}
+
+	CompleteAllWaves();
+}
+
+void AADWaveDirector::ScheduleNextWave()
+{
+	if (DelayBetweenWaves <= 0.0f)
+	{
+		StartNextWave();
+		return;
+	}
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT(
+			"Next wave starts in %.1f seconds."
+		),
+		DelayBetweenWaves
+	);
+
+	GetWorldTimerManager().SetTimer(
+		NextWaveTimerHandle,
+		this,
+		&AADWaveDirector::StartNextWave,
+		DelayBetweenWaves,
+		false
+	);
+}
+
+void AADWaveDirector::StartNextWave()
+{
+	if (bWaveSystemStopped) { return; }
+
+	StartWave(
+		CurrentWaveIndex + 1
+	);
+}
+
+void AADWaveDirector::CompleteAllWaves()
+{
+	if (bWaveSystemStopped
+		|| !IsValid(DefenseObjective)
+		|| DefenseObjective->IsDefeated())
+	{
+		return;
+	}
+
+	bWaveSystemStopped = true;
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT(
+			"========== ALL WAVES COMPLETED =========="
+		)
+	);
+
+	UWorld* World = GetWorld();
+
+	if (!IsValid(World))
+	{
+		return;
+	}
+
+	AADGameMode* GameMode =
+		World->GetAuthGameMode<AADGameMode>();
+
+	if (IsValid(GameMode))
+	{
+		GameMode->HandleGameVictory();
+	}
+}
+
+void AADWaveDirector::HandleObjectiveDefeated()
+{
+	StopWaveSystem();
+}
+
+void AADWaveDirector::StopWaveSystem()
+{
+	if (bWaveSystemStopped) { return; }
+
+	bWaveSystemStopped = true;
+
+	bIsSpawningWave = false;
+	bWaveInProgress = false;
+
+	GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
+	GetWorldTimerManager().ClearTimer(GroupDelayTimerHandle);
+	GetWorldTimerManager().ClearTimer(NextWaveTimerHandle);
+
+	UE_LOG(LogTemp, Display, TEXT("Wave system stopped."));
+}
+
+bool AADWaveDirector::IsWaveInProgress() const
+{
+	return bWaveInProgress;
+}
+
+int32 AADWaveDirector::GetAliveEnemyCount() const
+{
+	return ActiveEnemies.Num();
+}
+
+int32 AADWaveDirector::GetCurrentWaveNumber() const
+{
+	return (CurrentWaveIndex == INDEX_NONE) ? 0 : CurrentWaveIndex + 1;
 }

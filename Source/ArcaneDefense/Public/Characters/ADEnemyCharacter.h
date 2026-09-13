@@ -9,6 +9,13 @@
 class AADDefenseObjective;
 class UGameplayEffect;
 
+class AADEnemyCharacter;
+
+DECLARE_MULTICAST_DELEGATE_OneParam(
+	FADEnemyDefeatedSignature,
+	AADEnemyCharacter*
+);
+
 /**
  * Base class for enemy characters.
  *
@@ -52,6 +59,13 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "AI")
 	AActor* GetMoveTarget() const;
+
+	/**
+	 * Broadcast exactly once when this enemy enters its death state.
+	 *
+	 * Used by systems such as the Wave Director to track living enemies.
+	 */
+	FADEnemyDefeatedSignature OnEnemyDefeated;
 	
 protected:
 	/**

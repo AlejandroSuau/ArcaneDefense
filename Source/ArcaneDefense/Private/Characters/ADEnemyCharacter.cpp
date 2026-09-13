@@ -27,6 +27,9 @@ void AADEnemyCharacter::HandleDeath()
 	
 	Super::HandleDeath();
 
+	// Notify gameplay systems immediately.
+	OnEnemyDefeated.Broadcast(this);
+	
 	// Give Blueprint presentation a brief moment before destruction.
 	SetLifeSpan(0.75f);
 }
