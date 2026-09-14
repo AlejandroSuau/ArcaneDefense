@@ -320,10 +320,7 @@ void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
 void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 {
 	UAbilitySystemComponent*  AbilitySystem = GetAbilitySystemComponent();
-	if (!IsValid(AbilitySystem) || !Ability1Class)
-	{
-		return;
-	}
+	if (!IsValid(AbilitySystem) || !Ability1Class) { return; }
 
 	const bool bActivationStarted = AbilitySystem->TryActivateAbilityByClass(
 		Ability1Class, true);

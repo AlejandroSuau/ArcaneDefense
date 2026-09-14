@@ -76,6 +76,18 @@ protected:
 	FText CastDisplayName;
 
 private:
+	/**
+	 * Executes the payload of the ability after the cast and cost
+	 * have successfully completed.
+	 *
+	 * Subclasses can override this to deliver the effect differently,
+	 * for example through a projectile.
+	 */
+	virtual bool ExecuteAbilityPayload(
+		AADEnemyCharacter* Target,
+		const FGameplayAbilityActorInfo* ActorInfo
+	);
+	
 	UFUNCTION()
 	void HandleCastFinished();
 	

@@ -167,28 +167,33 @@ void UADGA_TargetedDamage::HandleCastFinished()
 		return;
 	}
 
-	TargetAbilitySystem->ApplyGameplayEffectSpecToSelf(*DamageSpec.Data.Get());
+	if (!ExecuteAbilityPayload(Target,ActorInfo))
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT(
+				"%s failed to execute its ability payload."
+			),
+			*GetNameSafe(this)
+		);
 
-	const AADCharacterBase* SourceCharacter = Cast<AADCharacterBase>(AvatarActor);
+		EndCurrentAbility(false);
+		return;
+	}
+
+	const AADCharacterBase* SourceCharacter = Cast<AADCharacterBase>(
+	ActorInfo->AvatarActor.Get());
 
 	UE_LOG(
 		LogTemp,
 		Display,
-		TEXT(
-			"%s completed %s. Target Health: %.0f/%.0f. "
-			"Caster Mana: %.0f/%.0f."
-		),
+		TEXT("%s completed casting %s on %s. Mana: %.0f/%.0f."),
 		*GetNameSafe(SourceCharacter),
 		*CastDisplayName.ToString(),
-		Target->GetHealth(),
-		Target->GetMaxHealth(),
-		IsValid(SourceCharacter)
-			? SourceCharacter->GetMana()
-			: 0.0f,
-		IsValid(SourceCharacter)
-			? SourceCharacter->GetMaxMana()
-			: 0.0f
-	);
+		*GetNameSafe(Target),
+		IsValid(SourceCharacter) ? SourceCharacter->GetMana(): 0.0f,
+		IsValid(SourceCharacter) ? SourceCharacter->GetMaxMana() : 0.0f);
 
 	EndCurrentAbility(false);
 }
@@ -265,10 +270,7 @@ bool UADGA_TargetedDamage::IsTargetInRange(const AActor* SourceActor, const AAct
 void UADGA_TargetedDamage::EndCurrentAbility(const bool bWasCancelled)
 {
 	const FGameplayAbilityActorInfo* ActorInfo = GetCurrentActorInfo();
-	if (!ActorInfo)
-	{
-		return;
-	}
+	if (!ActorInfo)	{ return; }
 
 	EndAbility(
 		GetCurrentAbilitySpecHandle(),
@@ -276,4 +278,24 @@ void UADGA_TargetedDamage::EndCurrentAbility(const bool bWasCancelled)
 		GetCurrentActivationInfo(),
 		true,
 		bWasCancelled);
+}
+
+bool UADGA_TargetedDamage::ExecuteAbilityPayload(
+	AADEnemyCharacter* Target,
+	const FGameplayAbilityActorInfo* /*ActorInfo*/)
+{
+	if (!IsValid(Target) || !DamageEffectClass)	{ return false;	}
+
+	UAbilitySystemComponent* TargetAbilitySystem = Target->GetAbilitySystemComponent();
+	if (!IsValid(TargetAbilitySystem)) { return false; }
+
+	const FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(
+		DamageEffectClass,
+		GetAbilityLevel());
+
+	if (!DamageSpec.IsValid()) { return false; }
+
+	TargetAbilitySystem->ApplyGameplayEffectSpecToSelf(*DamageSpec.Data.Get());
+
+	return true;
 }
