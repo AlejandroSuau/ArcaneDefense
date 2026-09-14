@@ -132,6 +132,14 @@ protected:
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> Ability1Action;
 
+	/** Activates the second gameplay ability slot. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> Ability2Action;
+
 	/** Ability granted and activated through the first ability slot. */
 	UPROPERTY(
 		EditDefaultsOnly,
@@ -139,6 +147,14 @@ protected:
 		Category = "Abilities",
 		meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UGameplayAbility> Ability1Class;
+
+	/** Ability granted and activated through the second ability slot. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Abilities",
+		meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayAbility> Ability2Class;	
 
 	bool bCameraLookActive = false;
 
@@ -151,5 +167,8 @@ private:
 	void StartCameraLook(const FInputActionValue& Value);
 	void StopCameraLook(const FInputActionValue& Value);
 	void ActivateAbility1(const FInputActionValue& Value);
+	void ActivateAbility2(const FInputActionValue& Value);
 	void CancelAbilitiesInterruptedByMovement();
+
+	void GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass);
 };

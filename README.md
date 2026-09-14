@@ -12,48 +12,71 @@ The planned vertical slice includes four player abilities, two placeable traps, 
 
 ## Technology
 
-The project currently uses Unreal Engine 5.8, C++, Enhanced Input, Gameplay Ability System, Gameplay Attributes, Gameplay Effects, Gameplay Tags, Gameplay Ability Tasks, Projectile Movement, Navigation, AI Controllers, UMG, Data Assets, gameplay timers, C++/Blueprint delegates, Git, and Git LFS.
+The project currently uses:
 
-Behavior Trees, additional data-driven definitions, automated tests, and Unreal Insights are planned for later milestones.
+* Unreal Engine 5.8.
+* C++.
+* Enhanced Input.
+* Gameplay Ability System.
+* Gameplay Attributes.
+* Gameplay Effects.
+* Instant Gameplay Effects.
+* Duration Gameplay Effects.
+* Periodic Gameplay Effects.
+* Gameplay Effect stacking.
+* Gameplay Tags.
+* Gameplay Ability Tasks.
+* Projectile Movement.
+* Navigation.
+* AI Controllers.
+* UMG.
+* Data Assets.
+* Gameplay timers.
+* C++ and Blueprint delegates.
+* Git.
+* Git LFS.
 
 ## Development Principles
 
-Core gameplay rules belong in C++. Blueprint is primarily responsible for asset configuration, composition, UI, animation and presentation.
+Core gameplay rules belong in C++.
 
-Gameplay values such as health, mana, damage, costs, cast time, projectile configuration and wave composition are data-driven whenever practical.
+Blueprint and Data Assets are primarily responsible for configuration, composition, presentation, UI, animation, visual effects, and balance values.
 
-Systems have narrow responsibilities:
+Systems remain narrowly focused:
 
 ```text
 ADTargetingComponent
-    → current selected target
+    → Current selected target
 
 ADCastComponent
-    → cast presentation state
+    → Cast presentation state
 
 GameplayAbility
-    → ability rules and execution
+    → Ability validation and execution
 
 ADProjectile
-    → transport an effect to a target
+    → Transport an effect through the world
+
+GameplayEffect
+    → Modify attributes and represent persistent effects
 
 ADEnemyAIController
-    → enemy navigation
+    → Enemy navigation
 
 ADDefenseObjective
-    → defended-object behavior
+    → Defended-object behavior
 
 ADWaveDataAsset
-    → wave configuration
+    → Wave configuration
 
 ADSpawnPoint
-    → spawn location
+    → Spawn location
 
 ADWaveDirector
-    → wave execution and lifecycle
+    → Wave execution and lifecycle
 
 ADGameMode
-    → global match result
+    → Global match result
 ```
 
 Abstractions are introduced only when a concrete gameplay requirement justifies them.
@@ -120,13 +143,16 @@ Source/
     └── ArcaneDefense.h
 ```
 
-## Content Structure
+Day 12 required no new native gameplay class. The existing targeted ability infrastructure was deliberately reused.
+
+## Current Content Structure
 
 ```text
 Content/
 └── ArcaneDefense/
     ├── Abilities/
     │   ├── GA_ArcaneBolt
+    │   ├── GA_Burn
     │   └── Projectiles/
     │       └── BP_ADProjectile_ArcaneBolt
     │
@@ -140,10 +166,14 @@ Content/
     │   │   ├── GE_InitializePlayerAttributes
     │   │   ├── GE_InitializeEnemyDummyAttributes
     │   │   └── GE_InitializeDefenseObjectiveAttributes
+    │   │
     │   ├── Costs/
-    │   │   └── GE_ArcaneBolt_Cost
+    │   │   ├── GE_ArcaneBolt_Cost
+    │   │   └── GE_Burn_Cost
+    │   │
     │   └── Damage/
     │       ├── GE_ArcaneBolt_Damage
+    │       ├── GE_Burn_DoT
     │       └── GE_EnemyObjectiveDamage
     │
     ├── Input/
@@ -153,13 +183,11 @@ Content/
     │   ├── IA_SelectTarget
     │   ├── IA_CameraLook
     │   ├── IA_Ability1
+    │   ├── IA_Ability2
     │   └── IMC_Player
     │
     ├── Maps/
     │   └── L_Prototype
-    │
-    ├── Materials/
-    │   └── M_TargetIndicator
     │
     ├── UI/
     │   ├── WBP_PlayerHUD
@@ -177,7 +205,9 @@ Content/
 
 ## Character Architecture
 
-`AADCharacterBase` is the shared base class for player and enemy characters. It owns the Ability System Component and shared Attribute Set, initializes GAS, applies initial attributes, exposes Health and Mana and implements the generic character death state.
+`AADCharacterBase` is shared by player and enemy Characters.
+
+It owns the Ability System Component and shared Attribute Set, initializes GAS, applies initial attributes and implements generic death behavior.
 
 ```text
 ACharacter
@@ -187,17 +217,24 @@ AADCharacterBase
     └── AADEnemyCharacter
 ```
 
-`AADPlayerCharacter` owns player movement, camera, Enhanced Input integration, ability activation, targeting, casting state and movement-based cast interruption.
+`AADPlayerCharacter` currently owns movement, camera, Enhanced Input bindings, ability activation, targeting and cast interruption.
 
-`AADEnemyCharacter` owns enemy-specific gameplay state, navigation destination, objective attacks, target presentation state and the `OnEnemyDefeated` event.
+The player currently supports two explicitly bound ability inputs.
+
+```text
+1 → GA_ArcaneBolt
+2 → GA_Burn
+```
+
+`AADEnemyCharacter` owns enemy-specific navigation, objective attacks, targeting presentation and enemy-defeat events.
 
 ## Gameplay Ability System
 
-Characters currently own a standard `UAbilitySystemComponent` directly.
+Characters own a standard `UAbilitySystemComponent` directly.
 
-The project deliberately does not yet contain a custom `UADAbilitySystemComponent`, because no project-specific ASC behavior currently justifies one.
+The Defense Objective owns its own ASC.
 
-The Defense Objective owns its own Ability System Component.
+No custom `UADAbilitySystemComponent` currently exists because no project-specific ASC behavior has yet justified one.
 
 ## Attributes
 
@@ -206,13 +243,14 @@ The Defense Objective owns its own Ability System Component.
 ```text
 Health
 MaxHealth
+
 Mana
 MaxMana
 ```
 
-It validates/clamps attribute values and broadcasts `OnOutOfHealth`.
+It handles attribute validation and broadcasts `OnOutOfHealth`.
 
-The Attribute Set does not decide what zero Health means.
+Death behavior remains outside the Attribute Set.
 
 ```text
 OnOutOfHealth
@@ -220,9 +258,11 @@ OnOutOfHealth
     └── Defense Objective → HandleOutOfHealth()
 ```
 
+This architecture works equally for instant and periodic changes to Health.
+
 ## Gameplay Effects
 
-Current Gameplay Effects include:
+Current effects include:
 
 ```text
 GE_InitializePlayerAttributes
@@ -232,142 +272,214 @@ GE_InitializeDefenseObjectiveAttributes
 GE_ArcaneBolt_Cost
 GE_ArcaneBolt_Damage
 
+GE_Burn_Cost
+GE_Burn_DoT
+
 GE_EnemyObjectiveDamage
 ```
 
-Gameplay implementation determines when effects are applied; the assets contain configurable balance values.
+Three Gameplay Effect patterns are currently represented.
+
+### Instant initialization
+
+Initial attribute effects use Instant Gameplay Effects.
+
+### Instant damage
+
+Arcane Bolt applies an instant Health modifier when its projectile reaches its target.
+
+### Duration and periodic damage
+
+Burn applies `GE_Burn_DoT`, which remains active for a configured duration and executes periodically.
+
+Current prototype Burn configuration:
+
+```text
+Duration = 5 seconds
+Period = 1 second
+Health change per period = -5
+Execute on application = false
+```
+
+This represents a total target value of approximately 25 damage over the full effect duration.
+
+## Gameplay Effect Stacking
+
+Burn currently uses source-based stacking with a stack limit of one.
+
+Conceptually:
+
+```text
+same caster
+    ↓
+reapplies Burn
+    ↓
+existing Burn refreshed
+```
+
+rather than:
+
+```text
+Burn instance 1
++
+Burn instance 2
++
+Burn instance 3
+```
+
+This behavior is configured through the Gameplay Effect rather than custom C++.
 
 ## Gameplay Ability Architecture
 
-`UADGameplayAbility` is the native base for project abilities and currently uses `InstancedPerActor`.
+`UADGameplayAbility` is the native base for project abilities.
 
-`UADGA_TargetedDamage` contains shared targeted-cast behavior:
+`UADGA_TargetedDamage` contains the reusable targeted-cast flow:
 
 ```text
-Target validation
-Range validation
-Airborne validation
-Target capture
-Cast lifecycle
-Post-cast target validation
-Cost commit
-Payload execution
+Validate target
+Validate range
+Validate movement state
+Capture target
+Start cast
+Wait
+Revalidate
+Commit ability
+Execute payload
 ```
 
-It exposes `ExecuteAbilityPayload()` as a specialization point.
+Its default payload applies the configured Gameplay Effect directly.
 
-Its default implementation applies the configured Gameplay Effect directly.
+`UADGA_TargetProjectile` overrides only the payload delivery mechanism and spawns an `AADProjectile`.
 
-`UADGA_TargetProjectile` specializes that payload by creating a homing projectile instead of directly applying the Gameplay Effect.
+This allows two current ability patterns:
+
+```text
+GA_ArcaneBolt
+    ↓
+ADGA_TargetProjectile
+    ↓
+Projectile
+    ↓
+Instant Gameplay Effect
+```
+
+and:
+
+```text
+GA_Burn
+    ↓
+ADGA_TargetedDamage
+    ↓
+Duration Gameplay Effect
+    ↓
+Periodic executions
+```
 
 ## Arcane Bolt
 
-`GA_ArcaneBolt` currently derives from:
+Current prototype configuration:
 
 ```text
-ADGA_TargetProjectile
-```
-
-Current prototype values:
-
-```text
+Input = 1
 Cast Time = 1.5 seconds
-Max Range = 2000 cm
+Range = 2000 cm
 Mana Cost = 20
 Damage = 25
 Projectile = BP_ADProjectile_ArcaneBolt
 ```
 
-Current execution:
+Flow:
 
 ```text
-Select target
-    ↓
-Start Arcane Bolt
-    ↓
-Validate target/range/state
-    ↓
-Cast 1.5 seconds
-    ↓
-Commit ability
-    ↓
-Spend mana
-    ↓
-Construct GameplayEffectSpec
-    ↓
-Spawn projectile
-    ↓
-Projectile follows target
-    ↓
+Cast
+ ↓
+Spend Mana
+ ↓
+Create Effect Spec
+ ↓
+Spawn Projectile
+ ↓
+Homing travel
+ ↓
 Impact
-    ↓
-Apply GameplayEffectSpec
-    ↓
-Enemy Health decreases
+ ↓
+Apply instant damage
 ```
 
-Cast completion and spell impact are now separate events.
+## Burn
+
+Current prototype configuration:
+
+```text
+Input = 2
+Cast Time = 1.0 second
+Range = 2000 cm
+Mana Cost = 15
+Effect = GE_Burn_DoT
+```
+
+Flow:
+
+```text
+Select Target
+    ↓
+Cast Burn
+    ↓
+Validate target
+    ↓
+Spend Mana
+    ↓
+Apply GE_Burn_DoT
+    ↓
+Active Gameplay Effect
+    ↓
+Periodic Health modification
+    ↓
+Effect expires
+```
+
+Burn does not use a projectile in its current implementation.
 
 ## Projectile System
 
-`AADProjectile` is a reusable Actor responsible for transporting a Gameplay Effect to a target.
+`AADProjectile` is a reusable world Actor that carries a `FGameplayEffectSpecHandle` from a source ASC toward a captured target.
 
-Composition:
+It uses `UProjectileMovementComponent` for homing movement.
 
-```text
-AADProjectile
-├── SphereCollision
-└── ProjectileMovement
-```
+The projectile does not know which specific spell created it.
 
-It receives during initialization:
-
-```text
-Source AbilitySystemComponent
-Target Actor
-GameplayEffectSpecHandle
-```
-
-It does not know which spell created it.
-
-Homing movement is handled by `UProjectileMovementComponent`, not custom Actor Tick.
-
-A targeted projectile ignores overlapping Pawns other than its captured target.
-
-World geometry can block and destroy the projectile.
-
-If its target disappears before impact, the projectile safely destroys itself.
-
-The Blueprint child `BP_ADProjectile_ArcaneBolt` contains Arcane Bolt-specific presentation only.
+World geometry can block the projectile and destroying its target safely invalidates the projectile.
 
 ## Gameplay Tags
 
-Current native tags include:
+Current native gameplay tags include:
 
 ```text
 State.Casting
 Ability.CancelOnMovement
 ```
 
-Movement only cancels abilities explicitly marked as movement-interruptible.
+Movement cancels only appropriately tagged abilities.
+
+Additional effect-state tags such as Burn will be introduced only when gameplay or presentation systems need to query them.
 
 ## Targeting
 
-`UADTargetingComponent` performs cursor targeting, validates selection distance, maintains a weak reference to the selected enemy and automatically clears invalid/destroyed targets.
+`UADTargetingComponent` performs cursor-based enemy targeting, validates distance and maintains a weak target reference.
 
-Target visuals remain Blueprint-driven through `AADEnemyCharacter`.
+Target presentation remains Blueprint-driven.
 
 ## Casting
 
-`UADCastComponent` exposes presentation state for the current cast.
+`UADCastComponent` represents UI-facing casting state.
 
-Actual asynchronous waiting remains inside GAS using `UAbilityTask_WaitDelay`.
+Actual waiting remains inside GAS through Ability Tasks.
 
-The component itself does not execute abilities.
+Both Arcane Bolt and Burn reuse this system.
 
 ## UI
 
-`WBP_PlayerHUD` is the root local-player HUD.
+`WBP_PlayerHUD` remains the root local HUD.
 
 Current composition:
 
@@ -376,174 +488,81 @@ WBP_PlayerHUD
 └── WBP_CastBar
 ```
 
-`WBP_CastBar` listens to `UADCastComponent` events and displays cast name and progress.
-
-## Player Controller
-
-`AADPlayerController` owns local-player-level concerns including cursor configuration, input mode and HUD creation.
-
-`BP_ADPlayerController` provides Blueprint configuration.
+The Cast Bar automatically works with both current cast-time abilities because it listens to `UADCastComponent`, not individual spell classes.
 
 ## Enemy AI
 
-`AADEnemyAIController` handles navigation through `MoveToActor`, using NavMesh pathfinding.
+`AADEnemyAIController` controls NavMesh navigation through `MoveToActor`.
 
-Enemies expose a generic:
+Enemy movement destinations remain generic Actor references.
 
-```text
-SetMoveTarget(AActor*)
-```
-
-rather than depending specifically on the Defense Objective.
-
-No Behavior Tree exists yet because current AI behavior remains linear.
+No Behavior Tree has been introduced because current enemy decision complexity does not justify one.
 
 ## Defense Objective
 
-`AADDefenseObjective` is a GAS-enabled Actor containing its own Ability System Component and the shared Attribute Set.
+`AADDefenseObjective` is a GAS-enabled Actor sharing the Health Attribute Set architecture with Characters.
 
-It broadcasts Health changes and objective defeat.
+Enemies apply objective damage through a Gameplay Effect.
 
-When Health reaches zero it informs `AADGameMode`.
-
-## Enemy Objective Attacks
-
-After successfully reaching the objective, enemies periodically apply:
-
-```text
-GE_EnemyObjectiveDamage
-```
-
-through GAS.
-
-Gameplay timers control attack intervals instead of Actor Tick.
+Reaching zero Health produces match defeat.
 
 ## Game Mode
 
-`AADGameMode` owns the match result:
+`AADGameMode` owns exactly one match result:
 
 ```text
-EADGameResult
-├── InProgress
-├── Victory
-└── Defeat
+InProgress
+Victory
+Defeat
 ```
 
-This prevents contradictory combinations of match-state booleans.
+Victory and defeat presentation remain provisional.
 
-## Wave Data
+## Wave Architecture
 
-`FADWaveSpawnGroup` currently contains:
+`FADWaveSpawnGroup` represents an ordered spawn group.
 
-```text
-EnemyClass
-Quantity
-SpawnInterval
-SpawnPointId
-DelayAfterGroup
-```
+`UADWaveDataAsset` stores wave configuration.
 
-`UADWaveDataAsset` stores ordered arrays of these groups.
+`AADSpawnPoint` represents named level spawn locations.
 
-Current prototype assets:
-
-```text
-DA_Wave_01
-DA_Wave_02
-DA_Wave_03
-```
-
-## Spawn Points
-
-`AADSpawnPoint` defines named spawn transforms in the map.
-
-Wave assets reference logical `FName` identifiers rather than direct references to level actors, keeping wave definitions map-independent.
-
-## Wave Director
-
-`AADWaveDirector` owns the lifecycle of the current wave sequence.
-
-Responsibilities include spawning enemies, resolving Spawn Points, assigning the Defense Objective, tracking active enemies, detecting wave completion, scheduling subsequent waves, stopping after defeat and triggering victory after the final wave.
+`AADWaveDirector` executes waves, tracks spawned enemies, detects true wave completion, schedules subsequent waves and produces victory after the final configured wave.
 
 ## Enemy Lifetime Tracking
 
-The Wave Director registers every enemy it creates.
+Wave enemies are registered when spawned.
 
 ```text
 Spawn
-  ↓
+ ↓
 ActiveEnemies.Add()
-  ↓
-Bind OnEnemyDefeated
-```
-
-Death produces:
-
-```text
+ ↓
 OnEnemyDefeated
-  ↓
+ ↓
 ActiveEnemies.Remove()
-  ↓
-TryCompleteCurrentWave()
 ```
 
-No repeated world scans are necessary.
+No recurring world scans are required.
+
+An enemy killed by Burn follows exactly the same death path as an enemy killed by Arcane Bolt.
 
 ## Wave Completion
-
-The project explicitly separates:
-
-```text
-Finished spawning
-```
-
-from:
-
-```text
-Wave completed
-```
 
 A wave completes only when:
 
 ```text
 bIsSpawningWave == false
+
 AND
+
 ActiveEnemies.Num() == 0
 ```
 
-## Current Wave Progression
-
-```text
-Wave 1
-    ↓
-Defeat all enemies
-    ↓
-Delay
-    ↓
-Wave 2
-    ↓
-Defeat all enemies
-    ↓
-Delay
-    ↓
-Wave 3
-    ↓
-Defeat all enemies
-    ↓
-Victory
-```
-
-If the Defense Objective reaches zero Health at any point:
-
-```text
-Defeat
-    ↓
-Stop Wave System
-```
+Damage source is irrelevant to wave tracking.
 
 ## Event-Driven Architecture
 
-Current events include:
+Current event integration includes:
 
 ```text
 AttributeSet
@@ -572,11 +591,11 @@ GameMode
     → OnGameResultChanged
 ```
 
-Gameplay systems react to events rather than repeatedly polling global state.
+Periodic Burn damage itself is scheduled internally by GAS rather than by a project-level event or timer.
 
 ## Timer Policy
 
-Gameplay timers currently control:
+Project timers currently handle:
 
 ```text
 Enemy objective attacks
@@ -585,35 +604,68 @@ Spawn-group delays
 Inter-wave delays
 ```
 
-Custom Tick is avoided for these discrete scheduled behaviors.
+No project timer is used for Burn.
 
-Projectile continuous movement is delegated to Unreal's dedicated Projectile Movement Component.
+Continuous projectile movement belongs to `UProjectileMovementComponent`.
+
+Periodic Gameplay Effect execution belongs to GAS.
 
 ## C++ / Blueprint Boundary
 
-C++ currently owns gameplay rules, character hierarchy, input bindings, GAS initialization, attribute rules, targeting, ability execution, projectile transport, cast lifecycle, AI navigation, enemy attacks, objective behavior, wave execution and match results.
+C++ currently owns:
 
-Blueprint/Data Assets currently own meshes, animations, materials, effects, input assets, ability tuning, projectile visuals, widgets, wave composition and presentation.
+* Character hierarchy.
+* Player input integration.
+* GAS initialization.
+* Attribute rules.
+* Targeting.
+* Casting lifecycle.
+* Ability execution.
+* Projectile transport.
+* AI navigation.
+* Enemy attacks.
+* Objective logic.
+* Wave execution.
+* Enemy tracking.
+* Match rules.
 
-## Technical Decisions
+Blueprint and data assets currently own:
 
-The player's ASC remains on the Character because the current project has no multiplayer, respawn persistence or character switching requirement.
+* Visual assets.
+* Input Actions and mappings.
+* Initial attribute values.
+* Mana costs.
+* Damage values.
+* Cast configuration.
+* Projectile visual configuration.
+* Gameplay Effect duration.
+* Gameplay Effect periods.
+* Gameplay Effect stacking.
+* Wave composition.
+* UI composition.
+* Prototype presentation.
 
-The Defense Objective uses GAS instead of introducing a second health framework.
+## Important Technical Decisions
 
-Experience and Level remain outside GAS until a concrete effect-driven requirement exists.
+The player ASC remains on the Character because multiplayer, respawn persistence and character switching are outside the current requirements.
 
-The cast component represents UI-facing cast state while Gameplay Abilities remain authoritative over execution.
+The Defense Objective uses GAS instead of implementing a second Health system.
 
-Weak references are used for non-owned gameplay relationships.
+Experience and Level remain outside GAS until gameplay requirements justify effect-driven modification.
 
-Wave definitions contain no direct level Actor references.
+The Cast Component describes presentation while Gameplay Abilities remain authoritative over execution.
 
-Enemy death and Actor destruction are treated as different events.
+Target relationships use weak references when ownership is not implied.
 
-The Wave Director reacts to death, not delayed visual destruction.
+Wave definitions do not directly reference level Actors.
 
-Targeted projectiles carry a `GameplayEffectSpec`, allowing the projectile actor to remain independent from a particular spell or damage value.
+Enemy death and Actor destruction remain separate concepts.
+
+Projectiles transport already-built Gameplay Effect Specs.
+
+Periodic damage uses GAS rather than manual timers.
+
+Burn stacking behavior is configured in the Gameplay Effect rather than hardcoded into its ability.
 
 ## Development Status
 
@@ -629,73 +681,118 @@ Day 8  — Defense Objective                   Completed
 Day 9  — Data-Driven Wave Spawning           Completed
 Day 10 — Wave Completion and Victory         Completed
 Day 11 — Reusable Homing Projectile          Completed
+Day 12 — Periodic Burn Gameplay Effect       Completed
 ```
 
 ## Current Prototype
 
-The prototype can start a match, spawn data-driven waves, navigate enemies toward the objective, select enemies, cast Arcane Bolt, interrupt casting through movement, spend mana, launch a homing projectile, apply damage on projectile impact, kill enemies, track active enemies, complete waves automatically, damage the Defense Objective, trigger defeat and trigger victory after all configured waves.
+The current prototype can:
+
+1. Start a complete wave sequence.
+2. Spawn enemies from Data Assets.
+3. Navigate enemies toward the objective.
+4. Select enemy targets.
+5. Cast Arcane Bolt.
+6. Launch a homing projectile.
+7. Damage enemies when projectiles impact.
+8. Cast Burn.
+9. Apply duration-based periodic damage.
+10. Kill enemies through instant or periodic effects.
+11. Interrupt casts through movement.
+12. Spend Mana through Gameplay Effects.
+13. Track living enemies.
+14. Complete waves automatically.
+15. Damage the Defense Objective.
+16. Produce defeat.
+17. Produce victory.
 
 ## Current Limitations
 
-The prototype does not yet include damage-over-time abilities, area spells, ground-targeted abilities, cooldowns, complete ability UI, final enemy archetypes, traps, progression, talents, final five-wave balance, Behavior Trees, final VFX/audio or profiling.
+The prototype does not yet include:
 
-## Next Milestone — Day 12
+* Area-of-effect player abilities.
+* Crowd control.
+* Ground-targeted abilities.
+* Cooldowns.
+* Full ability-bar UI.
+* Gameplay Cue presentation for Burn.
+* Final enemy archetypes.
+* Traps.
+* Experience.
+* Levels.
+* Talents.
+* Final five-wave balance.
+* Behavior Trees.
+* Final visual/audio presentation.
+* Automated testing.
+* Profiling.
 
-Day 12 introduces the first damage-over-time ability.
+## Next Milestone — Day 13
 
-Target architecture:
+Day 13 introduces the first area crowd-control spell: **Frost Nova**.
 
-```text
-Gameplay Ability
-    ↓
-Apply Gameplay Effect
-    ↓
-Duration-based Burn Effect
-    ↓
-Periodic damage
-    ↓
-Enemy Health decreases over time
-```
-
-This will introduce an important GAS distinction between:
-
-```text
-Instant Gameplay Effects
-```
-
-and:
+Target behavior:
 
 ```text
-Duration + Periodic Gameplay Effects
+Press Frost Nova
+    ↓
+Area around player
+    ↓
+Find nearby enemies
+    ↓
+Apply crowd-control effect
+    ↓
+Enemies temporarily stop or become rooted
+    ↓
+Effect expires
+    ↓
+Navigation resumes
 ```
+
+This will introduce our first meaningful gameplay state effect and begin using tags such as:
+
+```text
+State.Rooted
+Effect.Root
+```
+
+rather than implementing crowd control through ad-hoc booleans.
 
 ## Roadmap
 
-Week 1 — Foundation and targeting: **Completed**
+Week 1 — Foundation and Targeting: **Completed**
 
-Week 2 — Casting and wave defense: **Completed**
+Week 2 — Casting and Wave Defense: **Completed**
 
-Week 3 — Abilities and effects: **In progress**
+Week 3 — Abilities and Effects: **In Progress**
 
-Upcoming work covers burn/DoT, Frost Nova, Meteor and cooldown/ability UI.
+Current Week 3 progress:
+
+```text
+Day 11 — Targeted Projectile   Completed
+Day 12 — Damage Over Time      Completed
+Day 13 — Frost Nova            Next
+Day 14 — Meteor
+Day 15 — Cooldowns and Ability UI
+```
 
 Week 4 covers traps.
 
-Week 5 covers experience, levels and talents.
+Week 5 covers progression and talents.
 
-Week 6 covers final enemy archetypes and wave content.
+Week 6 covers final enemies and wave content.
 
-Week 7 covers testing, profiling and optimization.
+Week 7 covers testing and profiling.
 
-Week 8 covers presentation, packaging and portfolio material.
+Week 8 covers polish, packaging and portfolio presentation.
 
 ## Out of Scope
 
-The initial vertical slice excludes multiplayer, matchmaking, backend services, inventory, equipment, loot, crafting, shops, campaign, multiple maps, multiple playable classes, complex talent trees and original character modelling/animation production.
+The initial vertical slice excludes multiplayer, matchmaking, backend services, inventory, equipment, loot, crafting, shops, campaign, multiple maps, multiple playable classes, complex talent trees, and original modelling/animation production.
 
 ## Definition of Done
 
-The vertical slice is complete when it contains a packaged 8–12 minute match, four spells, two traps, three enemy types, five waves, progression, talents, victory/defeat, functional UI, automated tests, documented profiling and optimization, technical documentation and a short gameplay presentation video.
+The vertical slice is complete when it contains a packaged 8–12 minute match, four spells, two traps, three enemy types, five waves, progression, talents, victory/defeat, functional UI, automated tests, documented profiling and optimization, technical documentation, and a short gameplay presentation video.
 
 ## Development Workflow
 

@@ -183,6 +183,15 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			this,
 			&AADPlayerCharacter::ActivateAbility1);
 	}
+
+	if (IsValid(Ability2Action))
+	{
+		EnhancedInputComponent->BindAction(
+			Ability2Action,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::ActivateAbility2);
+	}
 }
 
 void AADPlayerCharacter::Move(const FInputActionValue& Value)
@@ -255,27 +264,27 @@ void AADPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
-	if (!HasAuthority()
-		|| !IsValid(AbilitySystem)
-		|| !Ability1Class)
-	{
-		return;
-	}
+	GrantStartupAbility(Ability1Class);
+	GrantStartupAbility(Ability2Class);
+}
 
-	const  FGameplayAbilitySpec AbilitySpec(
-		Ability1Class,
+void AADPlayerCharacter::GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass)
+{
+	if (!HasAuthority()	|| !AbilityClass) { return;	}
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC)) { return; }
+	
+	if (ASC->FindAbilitySpecFromClass(AbilityClass)) { return; }
+
+	FGameplayAbilitySpec AbilitySpec(
+		AbilityClass,
 		1,
 		INDEX_NONE,
-		this);
-	AbilitySystem->GiveAbility(AbilitySpec);
+		this
+	);
 
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("%s was granted  ability %s."),
-		*GetNameSafe(this),
-		*GetNameSafe(Ability1Class));
+	ASC->GiveAbility(AbilitySpec);
 }
 
 void AADPlayerCharacter::SelectTarget(const FInputActionValue& /*Value*/)
@@ -333,6 +342,14 @@ void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 			*GetNameSafe(this),
 			*GetNameSafe(Ability1Class));
 	}
+}
+
+void AADPlayerCharacter::ActivateAbility2(const FInputActionValue& /*Value*/)
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC) || !Ability2Class) {	return;	}
+
+	ASC->TryActivateAbilityByClass(Ability2Class);
 }
 
 void AADPlayerCharacter::CancelAbilitiesInterruptedByMovement()
