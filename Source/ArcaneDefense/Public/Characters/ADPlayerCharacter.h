@@ -140,6 +140,14 @@ protected:
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> Ability2Action;
 
+	/** Activates the third gameplay ability slot. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> Ability3Action;
+
 	/** Ability granted and activated through the first ability slot. */
 	UPROPERTY(
 		EditDefaultsOnly,
@@ -154,7 +162,15 @@ protected:
 		BlueprintReadOnly,
 		Category = "Abilities",
 		meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<UGameplayAbility> Ability2Class;	
+	TSubclassOf<UGameplayAbility> Ability2Class;
+
+	/** Ability granted and activated through the third ability slot. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Abilities",
+		meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayAbility> Ability3Class;
 
 	bool bCameraLookActive = false;
 
@@ -168,6 +184,7 @@ private:
 	void StopCameraLook(const FInputActionValue& Value);
 	void ActivateAbility1(const FInputActionValue& Value);
 	void ActivateAbility2(const FInputActionValue& Value);
+	void ActivateAbility3(const FInputActionValue& Value);
 	void CancelAbilitiesInterruptedByMovement();
 
 	void GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass);

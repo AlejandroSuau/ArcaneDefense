@@ -1,9 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Characters/ADCharacterBase.h"
+#include "GameplayTagContainer.h"
 #include "ADEnemyCharacter.generated.h"
 
 class AADDefenseObjective;
@@ -68,6 +67,7 @@ public:
 	FADEnemyDefeatedSignature OnEnemyDefeated;
 	
 protected:
+	virtual void BeginPlay() override;
 	/**
 	 * Implemented by the Blueprint child to update the visual indicator.
 	 */
@@ -77,10 +77,17 @@ protected:
 		meta  = (DisplayName = "Targeted State  Changed"))
 	void ReceiveTargetedStateChanged(bool bNewTargeted);
 
+	UFUNCTION(
+		BlueprintImplementableEvent,
+		Category = "Status",
+		meta = (DisplayName = "Rooted State Changed"))
+	void ReceiveRootedStateChanged(bool bIsRooted);
+	
 private:
 	void StartAttackingObjective(AADDefenseObjective* Objective);
 	void StopAttackingObjective();
 	void AttackObjective();
+	void HandleRootedTagChanged(const FGameplayTag Tag, int32 NewCount);
 
 	UPROPERTY(
 		EditDefaultsOnly,

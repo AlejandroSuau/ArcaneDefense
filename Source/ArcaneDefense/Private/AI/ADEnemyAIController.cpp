@@ -66,33 +66,31 @@ void AADEnemyAIController::MoveToCurrentTarget()
 		UE_LOG(
 			LogTemp,
 			Display,
-			TEXT(
-				"%s started moving toward %s."
-			),
+			TEXT("%s started moving toward %s."),
 			*GetNameSafe(GetPawn()),
 			*GetNameSafe(Target)
 		);
 		break;
 	case EPathFollowingRequestResult::AlreadyAtGoal:
-		UE_LOG(
-			LogTemp,
-			Display,
-			TEXT(
-				"%s is already at %s."
-			),
-			*GetNameSafe(GetPawn()),
-			*GetNameSafe(Target)
-		);
-		break;
+		{
+			UE_LOG(
+				LogTemp,
+				Display,
+				TEXT("%s is already at %s."),
+				*GetNameSafe(GetPawn()),
+				*GetNameSafe(Target)
+			);
 
+			AADEnemyCharacter* Enemy = Cast<AADEnemyCharacter>(GetPawn());
+			if (IsValid(Enemy)) { Enemy->HandleReachedMoveTarget(); }
+			break;
+		}
 	case EPathFollowingRequestResult::Failed:
 	default:
 		UE_LOG(
 			LogTemp,
 			Warning,
-			TEXT(
-				"%s failed to request movement toward %s."
-			),
+			TEXT("%s failed to request movement toward %s."),
 			*GetNameSafe(GetPawn()),
 			*GetNameSafe(Target)
 		);
@@ -109,9 +107,7 @@ void AADEnemyAIController::OnMoveCompleted(
 	UE_LOG(
 		LogTemp,
 		Display,
-		TEXT(
-			"%s finished its movement request. Result: %s."
-		),
+		TEXT("%s finished its movement request. Result: %s."),
 		*GetNameSafe(GetPawn()),
 		*Result.ToString()
 	);

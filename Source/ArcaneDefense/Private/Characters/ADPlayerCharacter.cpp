@@ -192,6 +192,16 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			this,
 			&AADPlayerCharacter::ActivateAbility2);
 	}
+
+	if (IsValid(Ability3Action))
+	{
+		EnhancedInputComponent->BindAction(
+			Ability3Action,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::ActivateAbility3
+		);
+	}
 }
 
 void AADPlayerCharacter::Move(const FInputActionValue& Value)
@@ -266,6 +276,7 @@ void AADPlayerCharacter::BeginPlay()
 
 	GrantStartupAbility(Ability1Class);
 	GrantStartupAbility(Ability2Class);
+	GrantStartupAbility(Ability3Class);
 }
 
 void AADPlayerCharacter::GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass)
@@ -300,10 +311,7 @@ void AADPlayerCharacter::StartCameraLook(const FInputActionValue& Value)
 	bCameraLookActive = true;
 
 	APlayerController* PlayerController = Cast<APlayerController>(Controller);
-	if (!IsValid(PlayerController))
-	{
-		return;
-	}
+	if (!IsValid(PlayerController)) { return; }
 
 	PlayerController->bShowMouseCursor = false;
 	PlayerController->SetInputMode(FInputModeGameOnly());
@@ -314,10 +322,7 @@ void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
 	bCameraLookActive = false;
 
 	APlayerController* PlayerController = Cast<APlayerController>(Controller);
-	if (!IsValid(PlayerController))
-	{
-		return;
-	}
+	if (!IsValid(PlayerController))	{ return; }
 
 	PlayerController->bShowMouseCursor = true;
 
@@ -328,7 +333,7 @@ void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
 
 void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 {
-	UAbilitySystemComponent*  AbilitySystem = GetAbilitySystemComponent();
+	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
 	if (!IsValid(AbilitySystem) || !Ability1Class) { return; }
 
 	const bool bActivationStarted = AbilitySystem->TryActivateAbilityByClass(
@@ -350,6 +355,14 @@ void AADPlayerCharacter::ActivateAbility2(const FInputActionValue& /*Value*/)
 	if (!IsValid(ASC) || !Ability2Class) {	return;	}
 
 	ASC->TryActivateAbilityByClass(Ability2Class);
+}
+
+void AADPlayerCharacter::ActivateAbility3(const FInputActionValue& /*Value*/)
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC) || !Ability3Class) { return; }
+
+	ASC->TryActivateAbilityByClass(Ability3Class);
 }
 
 void AADPlayerCharacter::CancelAbilitiesInterruptedByMovement()

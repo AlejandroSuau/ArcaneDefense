@@ -8,18 +8,32 @@
 #include "GameplayEffect.h"
 #include "TimerManager.h"
 
+#include "AbilitySystem/ADGameplayTags.h"
+#include "GameFramework/CharacterMovementComponent.h"
+
 AADEnemyCharacter::AADEnemyCharacter()
 {
 	AIControllerClass = AADEnemyAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 }
 
+void AADEnemyCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC)) { return; }
+
+	ASC->RegisterGameplayTagEvent(
+		ADGameplayTags::State_Rooted,
+		EGameplayTagEventType::NewOrRemoved
+	)
+	.AddUObject(this, &AADEnemyCharacter::HandleRootedTagChanged);
+}
+
 void AADEnemyCharacter::HandleDeath()
 {
-	if (IsDead())
-	{
-		return;
-	}
+	if (IsDead()) { return; }
 
 	SetTargeted(false);
 
@@ -36,10 +50,7 @@ void AADEnemyCharacter::HandleDeath()
 
 void AADEnemyCharacter::SetTargeted(const bool bNewTargeted)
 {
-	if (bIsTargeted == bNewTargeted)
-	{
-		return;
-	}
+	if (bIsTargeted == bNewTargeted) { return;	}
 
 	bIsTargeted = bNewTargeted;
 	ReceiveTargetedStateChanged(bIsTargeted);
@@ -47,7 +58,7 @@ void AADEnemyCharacter::SetTargeted(const bool bNewTargeted)
 
 bool AADEnemyCharacter::IsTargeted() const
 {
-	return  bIsTargeted;
+	return bIsTargeted;
 }
 
 void AADEnemyCharacter::SetMoveTarget(AActor* NewMoveTarget)
@@ -67,34 +78,18 @@ AActor* AADEnemyCharacter::GetMoveTarget() const
 
 void AADEnemyCharacter::HandleReachedMoveTarget()
 {
-	if (IsDead())
-	{
-		return;
-	}
+	if (IsDead()) { return;	}
 
-	AADDefenseObjective* Objective =
-		Cast<AADDefenseObjective>(
-			MoveTarget
-		);
+	AADDefenseObjective* Objective = Cast<AADDefenseObjective>(MoveTarget);
 
-	if (!IsValid(Objective)
-		|| Objective->IsDefeated())
-	{
-		return;
-	}
+	if (!IsValid(Objective) || Objective->IsDefeated()) { return; }
 
 	StartAttackingObjective(Objective);
 }
 
-void AADEnemyCharacter::StartAttackingObjective(
-	AADDefenseObjective* Objective
-)
+void AADEnemyCharacter::StartAttackingObjective(AADDefenseObjective* Objective)
 {
-	if (!IsValid(Objective)
-		|| IsDead())
-	{
-		return;
-	}
+	if (!IsValid(Objective) || IsDead()) { return; }
 
 	StopAttackingObjective();
 
@@ -103,10 +98,7 @@ void AADEnemyCharacter::StartAttackingObjective(
 	// First attack happens immediately after reaching the objective.
 	AttackObjective();
 
-	if (!ObjectiveBeingAttacked.IsValid())
-	{
-		return;
-	}
+	if (!ObjectiveBeingAttacked.IsValid()) { return; }
 
 	GetWorldTimerManager().SetTimer(
 		ObjectiveAttackTimerHandle,
@@ -120,9 +112,7 @@ void AADEnemyCharacter::StartAttackingObjective(
 
 void AADEnemyCharacter::StopAttackingObjective()
 {
-	GetWorldTimerManager().ClearTimer(
-		ObjectiveAttackTimerHandle
-	);
+	GetWorldTimerManager().ClearTimer(ObjectiveAttackTimerHandle);
 
 	ObjectiveBeingAttacked.Reset();
 }
@@ -135,8 +125,7 @@ void AADEnemyCharacter::AttackObjective()
 		return;
 	}
 
-	AADDefenseObjective* Objective =
-		ObjectiveBeingAttacked.Get();
+	AADDefenseObjective* Objective = ObjectiveBeingAttacked.Get();
 
 	if (!IsValid(Objective) || Objective->IsDefeated())
 	{
@@ -149,9 +138,7 @@ void AADEnemyCharacter::AttackObjective()
 		UE_LOG(
 			LogTemp,
 			Warning,
-			TEXT(
-				"%s has no Objective Damage Effect."
-			),
+			TEXT("%s has no Objective Damage Effect."),
 			*GetNameSafe(this)
 		);
 
@@ -159,11 +146,8 @@ void AADEnemyCharacter::AttackObjective()
 		return;
 	}
 
-	UAbilitySystemComponent* SourceAbilitySystem =
-		GetAbilitySystemComponent();
-
-	UAbilitySystemComponent* TargetAbilitySystem =
-		Objective->GetAbilitySystemComponent();
+	UAbilitySystemComponent* SourceAbilitySystem = GetAbilitySystemComponent();
+	UAbilitySystemComponent* TargetAbilitySystem = Objective->GetAbilitySystemComponent();
 
 	if (!IsValid(SourceAbilitySystem) || !IsValid(TargetAbilitySystem))
 	{
@@ -171,8 +155,7 @@ void AADEnemyCharacter::AttackObjective()
 		return;
 	}
 
-	FGameplayEffectContextHandle EffectContext =
-		SourceAbilitySystem->MakeEffectContext();
+	FGameplayEffectContextHandle EffectContext = SourceAbilitySystem->MakeEffectContext();
 
 	EffectContext.AddSourceObject(this);
 
@@ -192,12 +175,63 @@ void AADEnemyCharacter::AttackObjective()
 	UE_LOG(
 		LogTemp,
 		Display,
-		TEXT(
-			"%s attacked %s. Objective Health: %.0f/%.0f."
-		),
+		TEXT("%s attacked %s. Objective Health: %.0f/%.0f."),
 		*GetNameSafe(this),
 		*GetNameSafe(Objective),
 		Objective->GetHealth(),
 		Objective->GetMaxHealth()
 	);
+}
+void AADEnemyCharacter::HandleRootedTagChanged(
+	const FGameplayTag /*Tag*/,
+	const int32 NewCount)
+{
+	if (IsDead()) { return;	}
+
+	UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	if (!IsValid(MovementComponent)) { return; }
+
+	const bool bIsRooted = (NewCount > 0);
+	if (bIsRooted)
+	{
+		if (auto* EnemyController = Cast<AAIController>(GetController()))
+		{
+			EnemyController->StopMovement();
+		}
+
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->DisableMovement();
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("%s is rooted."),
+			*GetNameSafe(this)
+		);
+	}
+	else
+	{
+		MovementComponent->SetMovementMode(MOVE_Walking);
+
+		/*
+		 * An enemy already attacking the objective does not need
+		 * to restart navigation. Root prevents movement, not attacks.
+		 */
+		if (!ObjectiveBeingAttacked.IsValid())
+		{
+			if (auto* EnemyController = Cast<AADEnemyAIController>(GetController()))
+			{
+				EnemyController->SetMoveTarget(MoveTarget);
+			}
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("%s is no longer rooted."),
+			*GetNameSafe(this)
+		);
+	}
+
+	ReceiveRootedStateChanged(bIsRooted);
 }

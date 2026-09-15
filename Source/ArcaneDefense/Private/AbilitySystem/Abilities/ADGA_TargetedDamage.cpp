@@ -27,27 +27,9 @@ bool UADGA_TargetedDamage::CanActivateAbility(
 	const FGameplayTagContainer* TargetTags,
 	FGameplayTagContainer* OptionalRelevantTags) const
 {
-	if  (!Super::CanActivateAbility(
-		Handle,
-		ActorInfo,
-		SourceTags,
-		TargetTags,
-		OptionalRelevantTags))
-	{
-		return false;
-	}
-
-	const ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
-	if (!IsValid(Character))
-	{
-		return false;
-	}
-
-	const UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement();
-	if (IsValid(MovementComponent) && MovementComponent->IsFalling())
-	{
-		return false;
-	}
+	const bool CanActivateAbility = Super::CanActivateAbility(
+		Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags); 
+	if  (!CanActivateAbility || !IsAvatarGrounded(ActorInfo)) { return false; }
 	
 	return IsValid(GetValidTarget(ActorInfo));
 }

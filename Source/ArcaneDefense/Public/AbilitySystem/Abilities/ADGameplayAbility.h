@@ -16,4 +16,10 @@ class ARCANEDEFENSE_API UADGameplayAbility : public UGameplayAbility
 
 public:
 	UADGameplayAbility();
+
+protected:
+	/**
+	 * Returns true when the ability avatar is a grounded Character.
+	 */
+	bool IsAvatarGrounded(const FGameplayAbilityActorInfo* ActorInfo) const;
 };
