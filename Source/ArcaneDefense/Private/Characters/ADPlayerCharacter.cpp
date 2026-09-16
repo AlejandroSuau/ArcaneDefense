@@ -4,6 +4,7 @@
 
 #include "Combat/ADTargetingComponent.h"
 #include "Combat/ADCastComponent.h"
+#include "Combat/ADGroundTargetingComponent.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -18,6 +19,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 
+#include "AbilitySystem/Abilities/ADGA_GroundTargetedArea.h"
 #include "AbilitySystem/ADGameplayTags.h"
 
 AADPlayerCharacter::AADPlayerCharacter()
@@ -44,6 +46,7 @@ AADPlayerCharacter::AADPlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	GroundTargetingComponent = CreateDefaultSubobject<UADGroundTargetingComponent>(TEXT("GroundTargetingComponent"));
 	TargetingComponent = CreateDefaultSubobject<UADTargetingComponent>(TEXT("TargetingComponent"));
 	CastComponent = CreateDefaultSubobject<UADCastComponent>(TEXT("CastComponent"));
 }
@@ -54,25 +57,14 @@ void AADPlayerCharacter::PawnClientRestart()
 
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
 
-	if (!IsValid(PlayerController))
-	{
-		return;
-	}
+	if (!IsValid(PlayerController)) { return; }
 
 	ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
+	if (!IsValid(LocalPlayer)) { return; }
 
-	if (!IsValid(LocalPlayer))
-	{
-		return;
-	}
+	auto* InputSubsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
 
-	UEnhancedInputLocalPlayerSubsystem* InputSubsystem =
-		LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
-
-	if (!IsValid(InputSubsystem) || !IsValid(PlayerMappingContext))
-	{
-		return;
-	}
+	if (!IsValid(InputSubsystem) || !IsValid(PlayerMappingContext)) { return; }
 
 	// Avoid keeping a stale copy when the pawn is restarted.
 	InputSubsystem->RemoveMappingContext(PlayerMappingContext);
@@ -91,7 +83,7 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	UE_LOG(LogTemp, Warning, TEXT("INPUT SETUP OK"));
-	
+
 	UEnhancedInputComponent* EnhancedInputComponent =
 		Cast<UEnhancedInputComponent>(PlayerInputComponent);
 
@@ -115,11 +107,11 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	if (IsValid(LookAction))
 	{
 		UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("LOOK ACTION BOUND: %s"),
-		*GetNameSafe(LookAction)
-	);
+			LogTemp,
+			Warning,
+			TEXT("LOOK ACTION BOUND: %s"),
+			*GetNameSafe(LookAction)
+		);
 		EnhancedInputComponent->BindAction(
 			LookAction,
 			ETriggerEvent::Triggered,
@@ -167,7 +159,7 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			ETriggerEvent::Completed,
 			this,
 			&AADPlayerCharacter::StopCameraLook);
-		
+
 		EnhancedInputComponent->BindAction(
 			CameraLookAction,
 			ETriggerEvent::Canceled,
@@ -202,34 +194,32 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			&AADPlayerCharacter::ActivateAbility3
 		);
 	}
+
+	if (IsValid(Ability4Action))
+	{
+		EnhancedInputComponent->BindAction(
+			Ability4Action,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::ActivateAbility4
+		);
+	}
 }
 
 void AADPlayerCharacter::Move(const FInputActionValue& Value)
 {
-	if (!IsValid(Controller))
-	{
-		return;
-	}
+	if (!IsValid(Controller)) { return; }
 
 	const FVector2D MovementInput = Value.Get<FVector2D>();
-
 	if (!MovementInput.IsNearlyZero())
 	{
 		CancelAbilitiesInterruptedByMovement();
 	}
-	
+
 	const FRotator ControlRotation = Controller->GetControlRotation();
-	const FRotator YawRotation(
-		0.0f,
-		ControlRotation.Yaw,
-		0.0f
-	);
-
-	const FVector ForwardDirection =
-		FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-
-	const FVector RightDirection =
-		FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+	const FRotator YawRotation(0.0f, ControlRotation.Yaw, 0.0f);
+	const auto ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+	const auto RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
 	AddMovementInput(ForwardDirection, MovementInput.Y);
 	AddMovementInput(RightDirection, MovementInput.X);
@@ -237,13 +227,10 @@ void AADPlayerCharacter::Move(const FInputActionValue& Value)
 
 void AADPlayerCharacter::Look(const FInputActionValue& Value)
 {
-	if (!bCameraLookActive)
-	{
-		return;
-	}
-	
+	if (!bCameraLookActive) { return; }
+
 	const FVector2D LookInput = Value.Get<FVector2D>();
-	
+
 	AddControllerYawInput(LookInput.X);
 	AddControllerPitchInput(LookInput.Y);
 }
@@ -251,13 +238,18 @@ void AADPlayerCharacter::Look(const FInputActionValue& Value)
 void AADPlayerCharacter::StartJump(const FInputActionValue& /*Value*/)
 {
 	CancelAbilitiesInterruptedByMovement();
-	
+
 	Jump();
 }
 
 void AADPlayerCharacter::StopJump(const FInputActionValue& /*Value*/)
 {
 	StopJumping();
+}
+
+UADGroundTargetingComponent* AADPlayerCharacter::GetGroundTargetingComponent() const
+{
+	return GroundTargetingComponent;
 }
 
 UADTargetingComponent* AADPlayerCharacter::GetTargetingComponent() const
@@ -277,15 +269,16 @@ void AADPlayerCharacter::BeginPlay()
 	GrantStartupAbility(Ability1Class);
 	GrantStartupAbility(Ability2Class);
 	GrantStartupAbility(Ability3Class);
+	GrantStartupAbility(Ability4Class);
 }
 
 void AADPlayerCharacter::GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass)
 {
-	if (!HasAuthority()	|| !AbilityClass) { return;	}
+	if (!HasAuthority() || !AbilityClass) { return; }
 
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!IsValid(ASC)) { return; }
-	
+
 	if (ASC->FindAbilitySpecFromClass(AbilityClass)) { return; }
 
 	FGameplayAbilitySpec AbilitySpec(
@@ -300,6 +293,26 @@ void AADPlayerCharacter::GrantStartupAbility(TSubclassOf<UGameplayAbility> Abili
 
 void AADPlayerCharacter::SelectTarget(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
+	{
+		if (GroundTargetingComponent->ConfirmTargeting())
+		{
+			auto* ASC = GetAbilitySystemComponent();
+
+			const bool bActivated = (
+				IsValid(ASC)
+				&& Ability4Class
+				&& ASC->TryActivateAbilityByClass(Ability4Class));
+
+			if (!bActivated)
+			{
+				GroundTargetingComponent->ClearConfirmedLocation();
+			}
+		}
+
+		return;
+	}
+	
 	if (IsValid(TargetingComponent))
 	{
 		TargetingComponent->TrySelectTargetUnderCursor();
@@ -308,6 +321,12 @@ void AADPlayerCharacter::SelectTarget(const FInputActionValue& /*Value*/)
 
 void AADPlayerCharacter::StartCameraLook(const FInputActionValue& Value)
 {
+	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
+	{
+		GroundTargetingComponent->CancelTargeting();
+		return;
+	}
+	
 	bCameraLookActive = true;
 
 	APlayerController* PlayerController = Cast<APlayerController>(Controller);
@@ -322,7 +341,7 @@ void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
 	bCameraLookActive = false;
 
 	APlayerController* PlayerController = Cast<APlayerController>(Controller);
-	if (!IsValid(PlayerController))	{ return; }
+	if (!IsValid(PlayerController)) { return; }
 
 	PlayerController->bShowMouseCursor = true;
 
@@ -352,7 +371,7 @@ void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 void AADPlayerCharacter::ActivateAbility2(const FInputActionValue& /*Value*/)
 {
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
-	if (!IsValid(ASC) || !Ability2Class) {	return;	}
+	if (!IsValid(ASC) || !Ability2Class) { return; }
 
 	ASC->TryActivateAbilityByClass(Ability2Class);
 }
@@ -363,6 +382,29 @@ void AADPlayerCharacter::ActivateAbility3(const FInputActionValue& /*Value*/)
 	if (!IsValid(ASC) || !Ability3Class) { return; }
 
 	ASC->TryActivateAbilityByClass(Ability3Class);
+}
+
+void AADPlayerCharacter::ActivateAbility4(const FInputActionValue& /*Value*/)
+{
+	if (!IsValid(GroundTargetingComponent) || !Ability4Class) { return; }
+
+	if (GroundTargetingComponent->IsTargeting())
+	{
+		GroundTargetingComponent->CancelTargeting();
+		return;
+	}
+
+	const auto* GroundAbility = Cast<UADGA_GroundTargetedArea>(
+		Ability4Class->GetDefaultObject());
+	if (!IsValid(GroundAbility) || !GroundAbility->GetTargetPreviewActorClass())
+	{
+		return;
+	}
+
+	GroundTargetingComponent->StartTargeting(
+		GroundAbility->GetTargetingRange(),
+		GroundAbility->GetEffectRadius(),
+		GroundAbility->GetTargetPreviewActorClass());
 }
 
 void AADPlayerCharacter::CancelAbilitiesInterruptedByMovement()
@@ -376,4 +418,3 @@ void AADPlayerCharacter::CancelAbilitiesInterruptedByMovement()
 		AbilitySystem->CancelAbilities(&AbilitiesToCancel, nullptr, nullptr);
 	}
 }
-

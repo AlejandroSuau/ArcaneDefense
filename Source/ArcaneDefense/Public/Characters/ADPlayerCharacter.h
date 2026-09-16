@@ -12,6 +12,7 @@ class USpringArmComponent;
 class UADTargetingComponent;
 class UGameplayAbility;
 class UADCastComponent;
+class UADGroundTargetingComponent;
 
 /**
  * Player-controlled character.
@@ -29,6 +30,9 @@ public:
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
+	UFUNCTION(BlueprintPure, Category = "Ground Targeting")
+	UADGroundTargetingComponent* GetGroundTargetingComponent() const;
+	
 	UFUNCTION(BlueprintPure, Category = "Targeting")
 	UADTargetingComponent* GetTargetingComponent() const;
 
@@ -108,6 +112,13 @@ protected:
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> CameraLookAction;
 
+	UPROPERTY(
+		VisibleAnywhere,
+		BlueprintReadOnly,
+		Category = "Components",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UADGroundTargetingComponent> GroundTargetingComponent;
+	
 	/** Handles enemy target selection. */
 	UPROPERTY(
 		VisibleAnywhere,
@@ -148,6 +159,14 @@ protected:
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> Ability3Action;
 
+	/** Activates the fourth gameplay ability slot. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> Ability4Action;
+
 	/** Ability granted and activated through the first ability slot. */
 	UPROPERTY(
 		EditDefaultsOnly,
@@ -172,6 +191,14 @@ protected:
 		meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UGameplayAbility> Ability3Class;
 
+	/** Ability granted and activated through the fourth ability slot. */
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Abilities",
+		meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayAbility> Ability4Class;
+
 	bool bCameraLookActive = false;
 
 private:
@@ -185,6 +212,7 @@ private:
 	void ActivateAbility1(const FInputActionValue& Value);
 	void ActivateAbility2(const FInputActionValue& Value);
 	void ActivateAbility3(const FInputActionValue& Value);
+	void ActivateAbility4(const FInputActionValue& Value);
 	void CancelAbilitiesInterruptedByMovement();
 
 	void GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass);

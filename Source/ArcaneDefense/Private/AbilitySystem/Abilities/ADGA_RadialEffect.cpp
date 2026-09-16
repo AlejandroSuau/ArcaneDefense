@@ -23,9 +23,7 @@ bool UADGA_RadialEffect::CanActivateAbility(
 		return false;
 	}
 	
-	return (IsAvatarGrounded(ActorInfo) &&
-			EffectClass &&
-			Radius > 0.0f);
+	return (IsAvatarGrounded(ActorInfo) && EffectClass && Radius > 0.0f);
 }
 
 void UADGA_RadialEffect::ActivateAbility(
@@ -86,15 +84,13 @@ int32 UADGA_RadialEffect::ApplyEffectToEnemiesInRadius(
 	int32 AffectedEnemyCount = 0;
 	for (AActor* OverlappedActor : OverlappedActors)
 	{
-		AADEnemyCharacter* Enemy = Cast<AADEnemyCharacter>(OverlappedActor);
+		auto* Enemy = Cast<AADEnemyCharacter>(OverlappedActor);
 		if (!IsValid(Enemy) || Enemy->IsDead()) { continue; }
 
-		UAbilitySystemComponent* TargetASC = Enemy->GetAbilitySystemComponent();
+		auto* TargetASC = Enemy->GetAbilitySystemComponent();
 		if (!IsValid(TargetASC)) { continue; }
 
-		const FGameplayEffectSpecHandle EffectSpec = MakeOutgoingGameplayEffectSpec(
-			EffectClass,
-			GetAbilityLevel());
+		const auto EffectSpec = MakeOutgoingGameplayEffectSpec(EffectClass, GetAbilityLevel());
 		if (!EffectSpec.IsValid()) { continue; }
 
 		SourceASC->ApplyGameplayEffectSpecToTarget(*EffectSpec.Data.Get(), TargetASC);
