@@ -19,3 +19,13 @@ bool UADGameplayAbility::IsAvatarGrounded(const FGameplayAbilityActorInfo* Actor
 	const UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement();
 	return (IsValid(MovementComponent) && !MovementComponent->IsFalling());
 }
+
+FText UADGameplayAbility::GetAbilityDisplayName() const
+{
+	return AbilityDisplayName;
+}
+
+UTexture2D* UADGameplayAbility::GetAbilityIcon() const
+{
+	return AbilityIcon;
+}

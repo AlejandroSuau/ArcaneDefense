@@ -21,4 +21,14 @@ namespace ADGameplayTags
 		Effect_Root,
 		"Effect.Root",
 		"Identifies a gameplay effect that applies root.");
+
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(
+		Cooldown_FrostNova,
+		"Cooldown.Ability.FrostNova",
+		"Cooldown state for Frost Nova.");
+
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(
+		Cooldown_Meteor,
+		"Cooldown.Ability.Meteor",
+		"Cooldown state for Meteor.");
 }

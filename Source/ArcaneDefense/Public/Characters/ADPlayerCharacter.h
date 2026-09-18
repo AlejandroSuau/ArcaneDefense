@@ -9,8 +9,9 @@ class UCameraComponent;
 class UInputAction;
 class UInputMappingContext;
 class USpringArmComponent;
-class UADTargetingComponent;
 class UGameplayAbility;
+class UADGameplayAbility;
+class UADTargetingComponent;
 class UADCastComponent;
 class UADGroundTargetingComponent;
 
@@ -38,6 +39,18 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Combat|Casting")
 	UADCastComponent* GetCastComponent() const;
+
+	UFUNCTION(BlueprintPure, Category = "Abilities|UI")
+	bool GetAbilityCooldownInfo(
+		TSubclassOf<UGameplayAbility> AbilityClass,
+		float& TimeRemaining,
+		float& CooldownDuration) const;
+
+	UFUNCTION(BlueprintPure, Category = "Abilities|UI")
+	bool CanAffordAbilityCost(TSubclassOf<UGameplayAbility> AbilityClass) const;
+
+	UFUNCTION(BlueprintPure, Category = "Abilities|UI")
+	UADGameplayAbility* GetAbilityInstance(TSubclassOf<UGameplayAbility> AbilityClass) const;
 	
 protected:
 	virtual void BeginPlay() override;

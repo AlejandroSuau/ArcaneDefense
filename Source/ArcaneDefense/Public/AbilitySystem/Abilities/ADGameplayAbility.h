@@ -6,6 +6,8 @@
 #include "Abilities/GameplayAbility.h"
 #include "ADGameplayAbility.generated.h"
 
+class UTexture2D;
+
 /**
  * Base class for Arcane Defense gameplay abilities.
  */
@@ -17,7 +19,25 @@ class ARCANEDEFENSE_API UADGameplayAbility : public UGameplayAbility
 public:
 	UADGameplayAbility();
 
+	UFUNCTION(BlueprintPure, Category = "Ability|UI")
+	FText GetAbilityDisplayName() const;
+
+	UFUNCTION(BlueprintPure, Category = "Ability|UI")
+	UTexture2D* GetAbilityIcon() const;
+
 protected:
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Ability|UI")
+	FText AbilityDisplayName;
+
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Ability|UI")
+	TObjectPtr<UTexture2D> AbilityIcon;
+	
 	/**
 	 * Returns true when the ability avatar is a grounded Character.
 	 */

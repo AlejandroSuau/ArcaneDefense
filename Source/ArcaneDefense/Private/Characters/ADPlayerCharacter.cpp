@@ -19,6 +19,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 
+#include "AbilitySystem/Abilities/ADGameplayAbility.h"
 #include "AbilitySystem/Abilities/ADGA_GroundTargetedArea.h"
 #include "AbilitySystem/ADGameplayTags.h"
 
@@ -352,6 +353,11 @@ void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
 
 void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
+	{
+		return;
+	}
+	
 	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
 	if (!IsValid(AbilitySystem) || !Ability1Class) { return; }
 
@@ -370,6 +376,11 @@ void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 
 void AADPlayerCharacter::ActivateAbility2(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
+	{
+		return;
+	}
+	
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!IsValid(ASC) || !Ability2Class) { return; }
 
@@ -378,6 +389,11 @@ void AADPlayerCharacter::ActivateAbility2(const FInputActionValue& /*Value*/)
 
 void AADPlayerCharacter::ActivateAbility3(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
+	{
+		return;
+	}
+	
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!IsValid(ASC) || !Ability3Class) { return; }
 
@@ -386,6 +402,12 @@ void AADPlayerCharacter::ActivateAbility3(const FInputActionValue& /*Value*/)
 
 void AADPlayerCharacter::ActivateAbility4(const FInputActionValue& /*Value*/)
 {
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (IsValid(ASC) && ASC->HasMatchingGameplayTag(ADGameplayTags::State_Casting))
+	{
+		return;
+	}
+	
 	if (!IsValid(GroundTargetingComponent) || !Ability4Class) { return; }
 
 	if (GroundTargetingComponent->IsTargeting())
@@ -417,4 +439,62 @@ void AADPlayerCharacter::CancelAbilitiesInterruptedByMovement()
 		AbilitiesToCancel.AddTag(ADGameplayTags::Ability_CancelOnMovement);
 		AbilitySystem->CancelAbilities(&AbilitiesToCancel, nullptr, nullptr);
 	}
+}
+
+UADGameplayAbility* AADPlayerCharacter::GetAbilityInstance(
+	TSubclassOf<UGameplayAbility> AbilityClass) const
+{
+	if (!AbilityClass) { return nullptr; }
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC)) { return nullptr; }
+
+	auto* Spec = ASC->FindAbilitySpecFromClass(AbilityClass);
+	if (!Spec) { return nullptr; }
+
+	return Cast<UADGameplayAbility>(Spec->GetPrimaryInstance());
+}
+
+bool AADPlayerCharacter::GetAbilityCooldownInfo(
+	TSubclassOf<UGameplayAbility> AbilityClass,
+	float& TimeRemaining,
+	float& CooldownDuration) const
+{
+	TimeRemaining = 0.0f;
+	CooldownDuration = 0.0f;
+
+	UADGameplayAbility* Ability = GetAbilityInstance(AbilityClass);
+	if (!IsValid(Ability)) { return false; }
+
+	const auto* Spec = GetAbilitySystemComponent()->FindAbilitySpecFromClass(AbilityClass);
+	if (!Spec) { return false; }
+
+	const auto* ActorInfo = Ability->GetCurrentActorInfo();
+	if (!ActorInfo) { return false;	}
+
+	Ability->GetCooldownTimeRemainingAndDuration(
+		Spec->Handle,
+		ActorInfo,
+		TimeRemaining,
+		CooldownDuration);
+
+	return (TimeRemaining > 0.0f && CooldownDuration > 0.0f);
+}
+
+bool AADPlayerCharacter::CanAffordAbilityCost(
+	TSubclassOf<UGameplayAbility> AbilityClass) const
+{
+	UADGameplayAbility* Ability = GetAbilityInstance(AbilityClass);
+	if (!IsValid(Ability)) { return false; }
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC)) { return false; }
+
+	auto* Spec = ASC->FindAbilitySpecFromClass(AbilityClass);
+	if (!Spec) { return false; }
+
+	const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
+	if (!ActorInfo)	{ return false; }
+
+	return Ability->CheckCost(Spec->Handle, ActorInfo, nullptr);
 }
