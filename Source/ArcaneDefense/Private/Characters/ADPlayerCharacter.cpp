@@ -22,6 +22,7 @@
 #include "AbilitySystem/Abilities/ADGameplayAbility.h"
 #include "AbilitySystem/Abilities/ADGA_GroundTargetedArea.h"
 #include "AbilitySystem/ADGameplayTags.h"
+#include "AbilitySystem/ADPlayerResourceAttributeSet.h"
 
 AADPlayerCharacter::AADPlayerCharacter()
 {
@@ -50,6 +51,26 @@ AADPlayerCharacter::AADPlayerCharacter()
 	GroundTargetingComponent = CreateDefaultSubobject<UADGroundTargetingComponent>(TEXT("GroundTargetingComponent"));
 	TargetingComponent = CreateDefaultSubobject<UADTargetingComponent>(TEXT("TargetingComponent"));
 	CastComponent = CreateDefaultSubobject<UADCastComponent>(TEXT("CastComponent"));
+	PlayerResourceAttributes = CreateDefaultSubobject<UADPlayerResourceAttributeSet>(TEXT("PlayerResourceAttributes"));
+}
+
+void AADPlayerCharacter::ApplyInitialResources()
+{
+	if (!HasAuthority() || !InitialResourcesEffect)	{ return; }
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC)) { return; }
+
+	FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
+	EffectContext.AddSourceObject(this);
+
+	const FGameplayEffectSpecHandle EffectSpec = ASC->MakeOutgoingSpec(
+		InitialResourcesEffect,
+		1.0f,
+		EffectContext);
+
+	if (!EffectSpec.IsValid()) { return; }
+	ASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
 }
 
 void AADPlayerCharacter::PawnClientRestart()
@@ -266,6 +287,8 @@ UADCastComponent* AADPlayerCharacter::GetCastComponent() const
 void AADPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	ApplyInitialResources();
 
 	GrantStartupAbility(Ability1Class);
 	GrantStartupAbility(Ability2Class);
@@ -497,4 +520,11 @@ bool AADPlayerCharacter::CanAffordAbilityCost(
 	if (!ActorInfo)	{ return false; }
 
 	return Ability->CheckCost(Spec->Handle, ActorInfo, nullptr);
+}
+
+float AADPlayerCharacter::GetCoins() const
+{
+	return IsValid(PlayerResourceAttributes)
+		? PlayerResourceAttributes->GetCoins()
+		: 0.0f;
 }

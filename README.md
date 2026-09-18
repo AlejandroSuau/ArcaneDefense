@@ -2,62 +2,23 @@
 
 **Arcane Defense** is a technical gameplay vertical slice developed primarily in C++ using **Unreal Engine 5.8**.
 
-The project demonstrates Gameplay Programmer and Systems Programmer skills through a wave-defense experience combining target-based spell combat, ground targeting, crowd control, Gameplay Ability System, enemy AI, data-driven waves, progression, UI, testing, and profiling.
+The project demonstrates Gameplay Programmer and Systems Programmer skills through a wave-defense experience combining spell combat, target selection, ground targeting, Gameplay Ability System, enemy AI, objective defense, data-driven waves, player economy, traps, progression, UI, testing, and profiling.
 
 ## Project Goal
 
 The target experience is an 8–12 minute wave-defense match where the player protects a central objective against progressively harder enemy waves.
 
-The planned vertical slice includes four player abilities, two placeable traps, three enemy archetypes, five waves, in-match progression, talents, victory and defeat conditions, functional UI, automated testing, profiling, and a packaged playable build.
+The final vertical slice is planned to contain four player spells, two placeable traps, three enemy archetypes, five waves, a construction economy, in-match progression, talents, victory and defeat conditions, functional UI, automated testing, profiling, and a packaged playable build.
 
-## Technology
+## Development Philosophy
 
-The project currently uses Unreal Engine 5.8, C++, Enhanced Input, Gameplay Ability System, Gameplay Attributes, Gameplay Effects, Gameplay Tags, Gameplay Ability Tasks, Projectile Movement, collision queries, NavMesh navigation, AI Controllers, UMG, Data Assets, gameplay timers, delegates, Git, and Git LFS.
+Core gameplay rules are implemented in C++.
 
-## Development Principles
+Blueprint and Data Assets primarily own presentation, asset composition, tuning and content configuration.
 
-Core gameplay rules belong in C++.
+Systems are separated according to responsibility rather than according to individual content items.
 
-Blueprint and Data Assets primarily own configuration, asset composition, visuals, UI, animation, VFX and balance values.
-
-Gameplay systems are separated by responsibility:
-
-```text
-ADTargetingComponent
-    → selected enemy Actor
-
-ADGroundTargetingComponent
-    → selected world location
-
-ADCastComponent
-    → cast presentation state
-
-GameplayAbility
-    → validation and execution
-
-GameplayEffect
-    → attributes, persistent states and cooldowns
-
-ADProjectile
-    → effect transport through the world
-
-ADEnemyAIController
-    → navigation
-
-ADDefenseObjective
-    → defended-object behavior
-
-ADWaveDataAsset
-    → wave configuration
-
-ADWaveDirector
-    → wave execution/lifecycle
-
-ADGameMode
-    → match result
-```
-
-Abstractions are introduced only when concrete gameplay requirements justify them.
+New abstractions are introduced only after concrete gameplay requirements justify them.
 
 ## Source Structure
 
@@ -67,6 +28,8 @@ Source/
     ├── AbilitySystem/
     │   ├── ADAttributeSet.h
     │   ├── ADAttributeSet.cpp
+    │   ├── ADPlayerResourceAttributeSet.h
+    │   ├── ADPlayerResourceAttributeSet.cpp
     │   ├── ADGameplayTags.h
     │   ├── ADGameplayTags.cpp
     │   └── Abilities/
@@ -113,6 +76,11 @@ Source/
     │   ├── ADDefenseObjective.h
     │   └── ADDefenseObjective.cpp
     │
+    ├── Traps/
+    │   ├── ADTrapBase.h
+    │   ├── ADTrapBase.cpp
+    │   └── ADTrapDataAsset.h
+    │
     └── Waves/
         ├── ADWaveTypes.h
         ├── ADWaveDataAsset.h
@@ -122,83 +90,68 @@ Source/
         └── ADWaveDirector.cpp
 ```
 
-## Current Content Structure
+## Gameplay Ability System
+
+The player and enemies use Unreal Engine's `UAbilitySystemComponent`.
+
+The Defense Objective also owns an ASC.
+
+The player still owns one Ability System Component. Player-only economic resources are represented by an additional Attribute Set rather than by another ASC.
+
+## Combat Attributes
+
+`UADAttributeSet` contains combat attributes shared between applicable gameplay Actors:
 
 ```text
-Content/
-└── ArcaneDefense/
-    ├── Abilities/
-    │   ├── GA_ArcaneBolt
-    │   ├── GA_Burn
-    │   ├── GA_FrostNova
-    │   ├── GA_Meteor
-    │   └── Projectiles/
-    │       └── BP_ADProjectile_ArcaneBolt
-    │
-    ├── Effects/
-    │   ├── Attributes/
-    │   ├── Costs/
-    │   │   ├── GE_ArcaneBolt_Cost
-    │   │   ├── GE_Burn_Cost
-    │   │   ├── GE_FrostNova_Cost
-    │   │   └── GE_Meteor_Cost
-    │   ├── Cooldowns/
-    │   │   ├── GE_CD_ArcaneBolt
-    │   │   ├── GE_CD_Burn
-    │   │   ├── GE_CD_FrostNova
-    │   │   └── GE_CD_Meteor
-    │   ├── Damage/
-    │   │   ├── GE_ArcaneBolt_Damage
-    │   │   ├── GE_Burn_DoT
-    │   │   ├── GE_Meteor_Damage
-    │   │   └── GE_EnemyObjectiveDamage
-    │   └── Status/
-    │       └── GE_FrostNova_Root
-    │
-    ├── Input/
-    │   ├── IA_Move
-    │   ├── IA_Look
-    │   ├── IA_Jump
-    │   ├── IA_SelectTarget
-    │   ├── IA_CameraLook
-    │   ├── IA_Ability1
-    │   ├── IA_Ability2
-    │   ├── IA_Ability3
-    │   ├── IA_Ability4
-    │   └── IMC_Player
-    │
-    ├── Targeting/
-    │   └── BP_ADGroundTargetPreview
-    │
-    ├── UI/
-    │   ├── WBP_PlayerHUD
-    │   ├── WBP_CastBar
-    │   └── WBP_AbilitySlot
-    │
-    ├── Waves/
-    │   ├── DA_Wave_01
-    │   ├── DA_Wave_02
-    │   └── DA_Wave_03
-    │
-    └── Maps/
-        └── L_Prototype
+Health
+MaxHealth
+Mana
+MaxMana
 ```
 
-## Character Architecture
+It handles validation and out-of-health events.
 
-`AADCharacterBase` provides the shared Ability System, Attribute Set, initialization and generic death behavior.
+## Player Resource Attributes
+
+`UADPlayerResourceAttributeSet` contains resources exclusive to the player:
 
 ```text
-ACharacter
-    ↓
-AADCharacterBase
-    ├── AADPlayerCharacter
-    └── AADEnemyCharacter
+Coins
 ```
 
-`AADPlayerCharacter` integrates player input, targeting, ground targeting and activation of four granted Gameplay Abilities.
+Coins represent the construction economy used to buy traps.
 
-Current controls:
+They are deliberately separated from `UADAttributeSet` because enemies and the Defense Objective do not participate in the player economy.
+
+The player's ASC therefore conceptually contains:
+
+```text
+AbilitySystemComponent
+├── UADAttributeSet
+│     Health
+│     MaxHealth
+│     Mana
+│     MaxMana
+│
+└── UADPlayerResourceAttributeSet
+      Coins
+```
+
+Coins are prevented from becoming negative.
+
+Initial resources are currently configured through:
+
+```text
+GE_InitializePlayerResources
+```
+
+with a provisional starting value of 500 Coins.
+
+Future Gameplay Effects will modify Coins for enemy rewards, trap purchases and trap sales.
+
+## Player Ability Kit
+
+The current combat kit is:
 
 ```text
 1 → Arcane Bolt
@@ -207,335 +160,328 @@ Current controls:
 4 → Meteor
 ```
 
-## Gameplay Ability Architecture
+Arcane Bolt demonstrates targeted projectile delivery.
 
-```text
-UADGameplayAbility
-    ├── UADGA_TargetedDamage
-    │       ├── GA_Burn
-    │       └── UADGA_TargetProjectile
-    │               └── GA_ArcaneBolt
-    │
-    ├── UADGA_RadialEffect
-    │       └── GA_FrostNova
-    │
-    └── UADGA_GroundTargetedArea
-            └── GA_Meteor
-```
+Burn demonstrates periodic Gameplay Effects.
 
-The base Gameplay Ability also exposes UI-facing metadata such as display name and icon.
+Frost Nova demonstrates radial crowd control through Gameplay Tags.
 
-## Arcane Bolt
+Meteor demonstrates ground-targeted area damage.
 
-```text
-Targeting      = Enemy Actor
-Cast Time      = 1.5 s
-Mana Cost      = 20
-Delivery       = Homing Projectile
-Damage         = 25
-Cooldown       = 2 s
-```
+All four use GAS costs and independent GAS cooldowns.
 
-## Burn
+## Targeting
 
-```text
-Targeting      = Enemy Actor
-Cast Time      = 1.0 s
-Mana Cost      = 15
-Delivery       = Duration Gameplay Effect
-Duration       = 5 s
-Period         = 1 s
-Cooldown       = 4 s
-```
+`UADTargetingComponent` owns enemy Actor selection.
 
-## Frost Nova
+`UADGroundTargetingComponent` owns interactive world-location selection.
 
-```text
-Targeting      = Radius around caster
-Activation     = Instant
-Mana Cost      = 25
-Radius         = 600 cm
-Root Duration  = 3 s
-Cooldown       = 6 s
-```
+The two systems remain separate because actor targeting and spatial placement have different responsibilities.
 
-## Meteor
+## Casting
 
-```text
-Targeting      = Confirmed world location
-Cast Time      = 2 s
-Mana Cost      = 30
-Range          = 2500 cm
-AoE Radius     = 400 cm
-Damage         = 40
-Cooldown       = 8 s
-```
+`UADCastComponent` exposes presentation state for cast-time abilities.
 
-## Cooldown Architecture
+Actual ability execution and timing remain controlled by Gameplay Abilities and Gameplay Ability Tasks.
 
-Cooldowns are represented by duration Gameplay Effects.
+## Enemy AI
 
-```text
-Gameplay Ability
-      ↓
-CommitAbility()
-      ↓
-Cooldown Gameplay Effect
-      ↓
-Cooldown Tag on owner ASC
-      ↓
-Ability unavailable
-      ↓
-Effect expires
-      ↓
-Ability available
-```
+`AADEnemyAIController` handles navigation toward an assigned target Actor.
 
-Current cooldown tags:
-
-```text
-Cooldown.Ability.ArcaneBolt
-Cooldown.Ability.Burn
-Cooldown.Ability.FrostNova
-Cooldown.Ability.Meteor
-```
-
-Gameplay code does not maintain independent cooldown timers.
-
-The combat UI queries GAS for remaining cooldown and duration.
-
-## Invalid Gameplay States
-
-Ability activation is explicitly prevented in incompatible states.
-
-Casting grants `State.Casting`, and all player spells treat that state as activation-blocking.
-
-Ground targeting is handled separately from spell activation and prevents unrelated spell inputs until the target is confirmed or cancelled.
-
-Airborne validation prevents the current spell kit from being initiated while falling.
-
-GAS remains authoritative over cost and cooldown validation.
-
-A global cooldown is deliberately not implemented because it is optional and no current gameplay requirement justifies it.
-
-## Targeting Architecture
-
-`UADTargetingComponent` represents selected enemy Actors.
-
-`UADGroundTargetingComponent` represents selected world positions.
-
-The ground-target component only ticks while interactive location selection is active.
-
-## Gameplay Effects
-
-Gameplay Effects currently represent:
-
-```text
-Initial attributes
-Mana costs
-Instant damage
-Periodic damage
-Temporary crowd-control states
-Ability cooldowns
-Enemy objective damage
-```
-
-The project therefore uses GAS not merely as a damage framework but as the primary system for ability state, cost, persistent effects and cooldowns.
-
-## Combat HUD
-
-`WBP_PlayerHUD` now contains:
-
-```text
-Cast Bar
-Mana display
-Ability Bar
-```
-
-The ability bar contains four reusable `WBP_AbilitySlot` instances.
-
-Each slot knows which Gameplay Ability class it represents and displays:
-
-```text
-Input key
-Ability icon
-Cooldown remaining
-Insufficient-mana state
-```
-
-Cooldown numbers reflect GAS state rather than widget-owned timers.
-
-## Enemy AI and Crowd Control
-
-`AADEnemyAIController` handles navigation toward the defense objective.
-
-`State.Rooted` temporarily disables enemy movement and automatically restores navigation when its owning Gameplay Effect expires.
+Temporary states such as `State.Rooted` can stop enemy movement and navigation resumes when the state expires.
 
 ## Defense Objective
 
-`AADDefenseObjective` is GAS-enabled and shares the Health Attribute architecture.
+`AADDefenseObjective` uses the shared GAS Health architecture.
 
 Enemies periodically damage it.
 
-Zero Health produces defeat.
+Reaching zero Health produces match defeat.
 
 ## Wave Architecture
 
-`UADWaveDataAsset` stores spawn definitions.
+`UADWaveDataAsset` stores ordered spawn-group definitions.
 
-`AADSpawnPoint` represents named world locations.
+`AADSpawnPoint` represents named locations in the level.
 
-`AADWaveDirector` executes waves, tracks spawned enemies, distinguishes finished spawning from wave completion and automatically advances through the configured sequence.
+`AADWaveDirector` executes configured waves, tracks living enemies, distinguishes spawning completion from actual wave completion, progresses through multiple waves and triggers victory after the final one.
 
-## Match Rules
+## Player Economy
 
-`AADGameMode` stores exactly one result:
+The player has an in-match construction resource represented by the GAS `Coins` Attribute.
+
+Economy rules are:
 
 ```text
-InProgress
-Victory
-Defeat
+Match start
+    → initial Coins
+
+Enemy defeated
+    → future Coin reward
+
+Trap placed
+    → future Coin cost
+
+Trap sold
+    → future Coin refund
 ```
 
-## Event-Driven Architecture
+Trap placement will be allowed throughout the active match when the player can afford the trap and the world position is valid.
 
-The current project uses events for attribute depletion, target changes, casts, crowd-control tags, enemy defeat, objective defeat, wave state and match result.
+Trap selling will be restricted to the inter-wave state.
 
-UI uses direct lightweight queries where continuous presentation information such as cooldown remaining time is needed.
+The actual price paid for a trap is preserved on the runtime trap Actor so future talents or modifiers cannot produce incorrect sale refunds.
+
+## Trap Data Architecture
+
+`UADTrapDataAsset` is the data-driven description of a trap.
+
+It currently contains:
+
+```text
+Display Name
+Icon
+Trap Actor Class
+Placement Preview Class
+
+Construction Cost
+Sell Refund Ratio
+
+Trigger Box Extent
+Placement Box Extent
+
+Can Place On Floor
+Can Place On Wall
+
+Maximum Floor Slope
+Surface Height Tolerance
+```
+
+The Data Asset contains configuration only.
+
+It does not implement placement or runtime effects.
+
+## Runtime Trap Architecture
+
+`AADTrapBase` is the shared base Actor for placed traps.
+
+Current responsibilities are intentionally limited:
+
+```text
+Own TrapData
+Remember source AbilitySystemComponent
+Remember actual PurchasePrice
+Own enemy TriggerVolume
+Detect valid enemy entry
+Detect valid enemy exit
+Expose currently overlapping enemies
+```
+
+`AADTrapBase` has no custom Tick.
+
+It has no generic cooldown or rearm system.
+
+It does not own an Ability System Component.
+
+These are deliberate architectural decisions.
+
+## Trap GAS Ownership
+
+Placing a trap does not create another Ability System.
+
+Instead:
+
+```text
+Player ASC
+    ↓
+places trap
+    ↓
+AADTrapBase stores weak Source ASC reference
+```
+
+Concrete trap effects can later use the player's ASC as the Gameplay Effect source when interacting with enemy ASCs.
+
+This preserves player attribution while avoiding an unnecessary ASC on every world trap.
+
+## Trap Detection
+
+`AADTrapBase` owns a `UBoxComponent` configured for Pawn overlaps.
+
+Runtime enemy detection uses overlap events and filters `AADEnemyCharacter`.
+
+Only the Character Capsule is treated as the authoritative overlap component, preventing multiple components on the same enemy from generating duplicate logical entries.
+
+The base exposes separate extension points for enemy entry and exit.
+
+This allows future trap implementations to have different semantics.
+
+For example:
+
+```text
+Spike Trap
+    Enemy enters
+        → damage
+
+Slow Trap
+    Enemy enters
+        → apply slow
+    Enemy exits
+        → remove/expire slow
+```
+
+No assumption is made that all traps must share the same trigger lifecycle.
+
+## Trap Sale Model
+
+Every placed trap can store the exact `PurchasePrice` used when it was built.
+
+Its expected refund is:
+
+```text
+PurchasePrice × SellRefundRatio
+```
+
+rather than:
+
+```text
+TrapData.ConstructionCost × SellRefundRatio
+```
+
+This allows future cost modifiers and talents without creating an economy exploit.
+
+## Placement Requirements
+
+Actual trap placement is not implemented yet.
+
+The next placement system will validate:
+
+```text
+Explicitly buildable surface
+Floor/wall compatibility
+Surface slope
+Surface flatness across the footprint
+Available physical space
+No blocking obstacle
+Player affordability
+```
+
+A placement preview will communicate validity visually:
+
+```text
+Green → valid
+Red   → invalid
+```
+
+C++ will determine validity.
+
+Blueprint will determine presentation.
 
 ## Timer and Tick Policy
 
-Custom gameplay timers are used for discrete scheduled behavior such as enemy attacks and wave spawning.
+GAS owns spell cooldowns, persistent status durations and periodic effects.
 
-GAS owns DoT periods, status durations and cooldowns.
+Gameplay timers are used only where a scheduled world behavior actually requires one.
 
-`UProjectileMovementComponent` owns projectile movement.
+`AADTrapBase` currently uses neither Tick nor a cooldown timer.
 
-Ground-target preview ticks only while targeting.
-
-UI may tick for lightweight visual presentation of four cooldown slots but does not own gameplay timing.
+This may change in concrete trap subclasses only if their actual design requires timed behavior.
 
 ## C++ / Blueprint Boundary
 
-C++ owns gameplay rules, validation, queries, state reactions, targeting behavior, ability execution, AI, wave logic and match rules.
+C++ owns gameplay rules, economy state, placement validity, trap detection, spell behavior, AI, waves and match rules.
 
-Blueprint/Data Assets own spell tuning, Gameplay Effect configuration, visuals, input assets, widgets and wave content.
-
-## Important Technical Decisions
-
-The standard `UAbilitySystemComponent` remains sufficient; a project-specific ASC is not created without a concrete responsibility.
-
-Cooldowns use GAS rather than custom timers.
-
-Cooldown UI reads GAS rather than duplicating timer state.
-
-There is currently no global cooldown.
-
-Actor targeting and ground targeting remain separate concepts.
-
-Gameplay states such as `State.Rooted` and `State.Casting` remain tag-driven.
+Blueprint and Data Assets own trap meshes, placement-preview visuals, materials, VFX, UI and configurable balance values.
 
 ## Development Status
 
 ```text
-Day 1  — Project Setup                       Completed
-Day 2  — Player Character                    Completed
-Day 3  — Ability System and Attributes       Completed
-Day 4  — Target Selection                    Completed
-Day 5  — First Targeted Ability              Completed
-Day 6  — Spell Casting                       Completed
-Day 7  — Enemy Navigation                    Completed
-Day 8  — Defense Objective                   Completed
-Day 9  — Data-Driven Wave Spawning           Completed
-Day 10 — Wave Completion and Victory         Completed
-Day 11 — Reusable Homing Projectile          Completed
-Day 12 — Periodic Burn Gameplay Effect       Completed
-Day 13 — Frost Nova / Root Crowd Control     Completed
-Day 14 — Meteor / Ground Targeting           Completed
-Day 15 — Cooldowns / Combat Ability UI       Completed
+Day 1  — Project Setup                         Completed
+Day 2  — Player Character                      Completed
+Day 3  — Ability System and Attributes         Completed
+Day 4  — Target Selection                      Completed
+Day 5  — First Targeted Ability                Completed
+Day 6  — Spell Casting                         Completed
+Day 7  — Enemy Navigation                      Completed
+Day 8  — Defense Objective                     Completed
+Day 9  — Data-Driven Wave Spawning             Completed
+Day 10 — Wave Completion and Victory           Completed
+Day 11 — Reusable Homing Projectile            Completed
+Day 12 — Periodic Burn Gameplay Effect         Completed
+Day 13 — Frost Nova / Root Crowd Control       Completed
+Day 14 — Meteor / Ground Targeting             Completed
+Day 15 — Cooldowns / Combat Ability UI         Completed
+Day 16 — Player Economy + Trap Foundation      Completed
 ```
 
 ## Current Prototype
 
-The project now contains four functionally distinct player abilities with targeting, cost, cast rules, effects and cooldowns.
+The project currently supports a complete four-spell combat kit, data-driven waves, enemy AI, objective defense, victory and defeat, and the foundational architecture for the construction economy and runtime traps.
 
-It also supports wave spawning, enemy AI, objective defense, victory and defeat.
+## Next Milestone — Day 17
 
-Week 3's core ability milestone is complete.
+Day 17 implements trap placement.
 
-## Next Milestone — Day 16
-
-Day 16 begins the trap system.
-
-The first objective is not trap placement yet.
-
-It is to design the reusable trap runtime architecture:
+Target flow:
 
 ```text
-AADTrapBase
-      ↓
-Trap configuration
-      ↓
-Enemy detection
-      ↓
-Activation
-      ↓
-Cooldown
+Select Trap
+    ↓
+Enter Placement Mode
+    ↓
+Spawn Preview
+    ↓
+Trace under cursor
+    ↓
+Validate explicitly buildable surface
+    ↓
+Validate floor/wall compatibility
+    ↓
+Sample surface flatness
+    ↓
+Validate PlacementBoxExtent
+    ↓
+Check Coins
+    ↓
+Preview Green / Red
+    ↓
+Left Click
+    ↓
+Valid?
+    ├── no → remain in placement
+    └── yes
+          ↓
+       pay Coins
+          ↓
+       spawn TrapActorClass
+          ↓
+       InitializeTrap(
+           TrapData,
+           Player ASC,
+           ActualPricePaid
+       )
 ```
 
-and a data definition that lets individual trap types configure their values without hardcoding them into the base class.
+Trap construction will be possible during active waves as well as between waves.
+
+Selling will be implemented later and permitted only during the inter-wave state.
 
 ## Remaining Roadmap
 
 ```text
-Week 4
-Days 16–20
-Traps and preparation phase
+Day 17 — Trap Placement + Green/Red Validation
+Day 18 — Spike Trap
+Day 19 — Slow Trap
+Day 20 — Coin Rewards, Purchase/Sale Flow, Intermission Economy
 
-Week 5
-Days 21–25
-Experience, levels and talents
-
-Week 6
-Days 26–30
-Final enemy archetypes, five waves and refactor
-
-Week 7
-Days 31–35
-Tests, Unreal Insights and optimization
-
-Week 8
-Days 36–40
-Polish, packaging, documentation and portfolio
+Days 21–25 — Experience, Levels and Talents
+Days 26–30 — Final Enemies, Five Waves and Refactor
+Days 31–35 — Tests, Profiling and Optimization
+Days 36–40 — Polish, Packaging and Portfolio
 ```
-
-## Out of Scope
-
-The initial vertical slice excludes multiplayer, matchmaking, backend systems, inventory, equipment, loot, crafting, shops, campaigns, multiple maps, multiple playable classes, complex talent trees and original character modelling/animation production.
 
 ## Definition of Done
 
-The project is complete when it contains a packaged 8–12 minute match, four spells, two traps, three enemy types, five waves, progression, talents, victory/defeat, functional UI, tests, documented profiling and optimization, technical documentation and a short gameplay presentation video.
-
-## Development Workflow
-
-```text
-Define verifiable objective
-        ↓
-Implement
-        ↓
-Compile
-        ↓
-Test normal case
-        ↓
-Test edge cases
-        ↓
-Review logs
-        ↓
-Update README
-        ↓
-Commit
-```
+The final vertical slice requires a packaged 8–12 minute match, four player spells, two placeable traps, three enemy archetypes, five waves, construction economy, progression, talents, victory/defeat, functional UI, automated tests, documented profiling and optimization, technical documentation and portfolio material.
 
 ## License
 

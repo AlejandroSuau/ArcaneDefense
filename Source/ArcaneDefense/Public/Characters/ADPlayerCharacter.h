@@ -14,6 +14,8 @@ class UADGameplayAbility;
 class UADTargetingComponent;
 class UADCastComponent;
 class UADGroundTargetingComponent;
+class UADPlayerResourceAttributeSet;
+class UGameplayEffect;
 
 /**
  * Player-controlled character.
@@ -30,12 +32,15 @@ public:
 
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-
+		
 	UFUNCTION(BlueprintPure, Category = "Ground Targeting")
 	UADGroundTargetingComponent* GetGroundTargetingComponent() const;
 	
 	UFUNCTION(BlueprintPure, Category = "Targeting")
 	UADTargetingComponent* GetTargetingComponent() const;
+
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	float GetCoins() const;
 
 	UFUNCTION(BlueprintPure, Category = "Combat|Casting")
 	UADCastComponent* GetCastComponent() const;
@@ -212,6 +217,22 @@ protected:
 		meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UGameplayAbility> Ability4Class;
 
+	UPROPERTY(
+		VisibleAnywhere,
+		BlueprintReadOnly,
+		Category = "Ability System",
+		meta = (AllowPrivateAccess = "true")
+	)
+	TObjectPtr<UADPlayerResourceAttributeSet> PlayerResourceAttributes;
+
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Ability System|Initialization",
+		meta = (AllowPrivateAccess = "true")
+	)
+	TSubclassOf<UGameplayEffect> InitialResourcesEffect;
+	
 	bool bCameraLookActive = false;
 
 private:
@@ -226,6 +247,7 @@ private:
 	void ActivateAbility2(const FInputActionValue& Value);
 	void ActivateAbility3(const FInputActionValue& Value);
 	void ActivateAbility4(const FInputActionValue& Value);
+	void ApplyInitialResources();
 	void CancelAbilitiesInterruptedByMovement();
 
 	void GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass);
