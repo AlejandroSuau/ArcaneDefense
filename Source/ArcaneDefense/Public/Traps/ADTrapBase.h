@@ -10,7 +10,7 @@ class UAbilitySystemComponent;
 class UADTrapDataAsset;
 class UPrimitiveComponent;
 class USceneComponent;
-class USphereComponent;
+class UBoxComponent;
 
 /**
  * Common runtime base for placed traps.
@@ -52,14 +52,10 @@ public:
 	int32 GetExpectedSellValue() const;
 
 	UFUNCTION(BlueprintPure, Category = "Trap")
-	float GetActivationRadius() const;
-
-	UFUNCTION(BlueprintPure, Category = "Trap")
-	float GetEffectRadius() const;
-
+	float GetActivationRange() const;
+	
 	UFUNCTION(BlueprintPure, Category = "Trap")
 	int32 GetValidEnemyCount() const;
-
 
 protected:
 	virtual void BeginPlay() override;
@@ -70,7 +66,7 @@ protected:
 	 */
 	virtual void HandleEnemyEnteredTrigger(AADEnemyCharacter* Enemy);
 	virtual void HandleEnemyExitedTrigger(AADEnemyCharacter* Enemy);
-	void GetValidEnemiesInTrigger(TArray<AADEnemyCharacter*>& OutEnemies) const;
+	void GetValidEnemiesInActivationRange(TArray<AADEnemyCharacter*>& OutEnemies) const;
 
 	UAbilitySystemComponent* GetSourceAbilitySystem() const;
 
@@ -117,7 +113,7 @@ private:
 		BlueprintReadOnly,
 		Category = "Components",
 		meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<USphereComponent> ActivationVolume;
+	TObjectPtr<UBoxComponent> ActivationVolume;
 
 	/**
 	 * EditInstanceOnly allows manual level testing during development.

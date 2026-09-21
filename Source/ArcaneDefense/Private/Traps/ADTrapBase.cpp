@@ -5,7 +5,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
-#include "Components/SphereComponent.h"
+#include "Components/BoxComponent.h"
 #include "Traps/ADTrapDataAsset.h"
 #include "Traps/ADTrapPlacementSlot.h"
 
@@ -16,9 +16,9 @@ AADTrapBase::AADTrapBase()
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	SetRootComponent(SceneRoot);
 	
-	ActivationVolume = CreateDefaultSubobject<USphereComponent>(TEXT("ActivationVolume"));
+	ActivationVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("ActivationVolume"));
 	ActivationVolume->SetupAttachment(SceneRoot);
-	ActivationVolume->InitSphereRadius(100.0f);
+	ActivationVolume->InitBoxExtent(FVector(100.0f,100.0f,100.0f));
 	ActivationVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	ActivationVolume->SetCollisionObjectType(ECC_WorldDynamic);
 	ActivationVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
@@ -59,7 +59,6 @@ void AADTrapBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	PlacementSlot.Reset();
-
 	
 	Super::EndPlay(EndPlayReason);
 }
@@ -79,14 +78,20 @@ void AADTrapBase::InitializeTrap(
 
 	ApplyTrapData();
 }
+
 void AADTrapBase::ApplyTrapData()
 {
-	if (!IsValid(TrapData)) { return; }
+	if (!IsValid(TrapData) || !IsValid(ActivationVolume)) { return; }
 
-	if (IsValid(ActivationVolume))
-	{
-		ActivationVolume->SetSphereRadius(TrapData->ActivationRadius,true);
-	}
+	AADTrapPlacementSlot* Slot = PlacementSlot.Get();
+	if (!IsValid(Slot)) { return; }
+
+	const FVector SlotExtent = Slot->GetPlacementBlockingHalfExtent();
+	const float HalfRange = TrapData->ActivationRange * 0.5f;
+
+	ActivationVolume->SetBoxExtent(
+		FVector(SlotExtent.X, SlotExtent.Y,HalfRange),true);
+	ActivationVolume->SetRelativeLocation(FVector(0.0f,0.0f,HalfRange));
 }
 
 void AADTrapBase::HandleActivationBeginOverlap(
@@ -131,7 +136,7 @@ void AADTrapBase::HandleEnemyExitedTrigger(AADEnemyCharacter* Enemy)
 	ReceiveEnemyExitedTrigger(Enemy);
 }
 
-void AADTrapBase::GetValidEnemiesInTrigger(TArray<AADEnemyCharacter*>& OutEnemies) const
+void AADTrapBase::GetValidEnemiesInActivationRange(TArray<AADEnemyCharacter*>& OutEnemies) const
 {
 	OutEnemies.Reset();
 
@@ -172,20 +177,15 @@ int32 AADTrapBase::GetExpectedSellValue() const
 	return FMath::RoundToInt(static_cast<float>(PurchasePrice) * TrapData->SellRefundRatio);
 }
 
-float AADTrapBase::GetActivationRadius() const
+float AADTrapBase::GetActivationRange() const
 {
-	return IsValid(TrapData) ? TrapData->ActivationRadius : 0.0f;
-}
-
-float AADTrapBase::GetEffectRadius() const
-{
-	return IsValid(TrapData) ? TrapData->EffectRadius : 0.0f;
+	return IsValid(TrapData) ? TrapData->ActivationRange : 0.0f;
 }
 
 int32 AADTrapBase::GetValidEnemyCount() const
 {
 	TArray<AADEnemyCharacter*> Enemies;
-	GetValidEnemiesInTrigger(Enemies);
+	GetValidEnemiesInActivationRange(Enemies);
 
 	return Enemies.Num();
 }

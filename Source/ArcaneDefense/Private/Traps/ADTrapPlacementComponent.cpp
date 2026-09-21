@@ -139,8 +139,7 @@ void UADTrapPlacementComponent::UpdatePlacement()
 	Preview->SetActorHiddenInGame(false);
 
 	Preview->ConfigurePreview(
-		SelectedTrapData->ActivationRadius,
-		SelectedTrapData->EffectRadius,
+		SelectedTrapData->ActivationRange,
 		Slot->GetPlacementBlockingHalfExtent());
 
 	const bool bSupportsTrap = Slot->SupportsTrap(SelectedTrapData);

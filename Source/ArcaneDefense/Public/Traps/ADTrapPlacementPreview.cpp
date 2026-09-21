@@ -13,23 +13,16 @@ AADTrapPlacementPreview::AADTrapPlacementPreview()
 }
 
 void AADTrapPlacementPreview::ConfigurePreview(
-	float ActivationRadius,
-	float EffectRadius,
-	const FVector& SlotHalfExtent)
+		const float ActivationRange, const FVector& SlotHalfExtent)
 {
-	const bool bSameActivation = FMath::IsNearlyEqual(
-		CachedActivationRadius, ActivationRadius);
-	const bool bSameEffect = FMath::IsNearlyEqual(
-		CachedEffectRadius, EffectRadius);
+	const bool bSameRange = FMath::IsNearlyEqual(CachedActivationRange,ActivationRange);
 	const bool bSameSlot = CachedSlotHalfExtent.Equals(SlotHalfExtent,0.01f);
+	if (bSameRange && bSameSlot) { return; }
 
-	if (bSameActivation	&& bSameEffect && bSameSlot) { return; }
-
-	CachedActivationRadius = ActivationRadius;
-	CachedEffectRadius = EffectRadius;
+	CachedActivationRange = ActivationRange;
 	CachedSlotHalfExtent = SlotHalfExtent;
 
-	ReceivePreviewConfigured(ActivationRadius, EffectRadius, SlotHalfExtent);
+	ReceivePreviewConfigured(ActivationRange, SlotHalfExtent);
 }
 
 void AADTrapPlacementPreview::SetPlacementValid(const bool bInPlacementValid)

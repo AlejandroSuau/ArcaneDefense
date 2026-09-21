@@ -75,7 +75,7 @@ private:
 		meta = (
 			AllowPrivateAccess = "true",
 			Units = "cm"))
-	FVector2D SlotHalfSize = FVector2D(75.0f, 75.0f);
+	FVector2D SlotHalfSize = FVector2D(100.0f, 100.0f);
 
 	/**
 	 * How much free space must exist away from the supporting surface.

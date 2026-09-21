@@ -16,8 +16,7 @@ public:
 	AADTrapPlacementPreview();
 
 	void ConfigurePreview(
-		float ActivationRadius,
-		float EffectRadius,
+		float ActivationRange,
 		const FVector& SlotHalfExtent);
 	void SetPlacementValid(bool bInPlacementValid);
 
@@ -26,10 +25,7 @@ protected:
 		BlueprintImplementableEvent,
 		Category = "Trap|Placement",
 		meta = (DisplayName = "Preview Configured"))
-	void ReceivePreviewConfigured(
-		float ActivationRadius,
-		float EffectRadius,
-		FVector SlotHalfExtent);
+	void ReceivePreviewConfigured(float ActivationRange, FVector SlotHalfExtent);
 
 	UFUNCTION(
 		BlueprintImplementableEvent,
@@ -43,8 +39,7 @@ private:
 		Category = "Components")
 	TObjectPtr<USceneComponent> SceneRoot;
 
-	float CachedActivationRadius = -1.0f;
-	float CachedEffectRadius = -1.0f;
+	float CachedActivationRange = -1.0f;
 	FVector CachedSlotHalfExtent  = FVector::ZeroVector;
 	bool bHasValidity = false;
 	bool bPlacementValid = false;

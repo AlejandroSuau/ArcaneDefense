@@ -70,6 +70,10 @@ public:
 		Category = "Trap|Placement")
 	bool bCanPlaceOnWall = false;
 
+	/**
+	 * Distance that the activation/effect volume extends
+	 * away from the trap surface.
+	 */
 	UPROPERTY(
 		EditAnywhere,
 		BlueprintReadOnly,
@@ -77,14 +81,5 @@ public:
 		meta = (
 			ClampMin = "1.0",
 			Units = "cm"))
-	float ActivationRadius = 100.0f;
-
-	UPROPERTY(
-		EditAnywhere,
-		BlueprintReadOnly,
-		Category = "Trap|Range",
-		meta = (
-			ClampMin = "1.0",
-			Units = "cm"))
-	float EffectRadius = 150.0f;
+	float ActivationRange = 200.0f;
 };
