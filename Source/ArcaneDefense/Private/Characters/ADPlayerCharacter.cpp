@@ -10,6 +10,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayAbilitySpec.h"
+#include "GameplayEffect.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
 
@@ -23,6 +24,9 @@
 #include "AbilitySystem/Abilities/ADGA_GroundTargetedArea.h"
 #include "AbilitySystem/ADGameplayTags.h"
 #include "AbilitySystem/ADPlayerResourceAttributeSet.h"
+
+#include "Traps/ADTrapDataAsset.h"
+#include "Traps/ADTrapPlacementComponent.h"
 
 AADPlayerCharacter::AADPlayerCharacter()
 {
@@ -52,6 +56,7 @@ AADPlayerCharacter::AADPlayerCharacter()
 	TargetingComponent = CreateDefaultSubobject<UADTargetingComponent>(TEXT("TargetingComponent"));
 	CastComponent = CreateDefaultSubobject<UADCastComponent>(TEXT("CastComponent"));
 	PlayerResourceAttributes = CreateDefaultSubobject<UADPlayerResourceAttributeSet>(TEXT("PlayerResourceAttributes"));
+	TrapPlacementComponent = CreateDefaultSubobject<UADTrapPlacementComponent>(TEXT("TrapPlacementComponent"));
 }
 
 void AADPlayerCharacter::ApplyInitialResources()
@@ -122,8 +127,7 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			MoveAction,
 			ETriggerEvent::Triggered,
 			this,
-			&AADPlayerCharacter::Move
-		);
+			&AADPlayerCharacter::Move);
 	}
 
 	if (IsValid(LookAction))
@@ -138,8 +142,7 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			LookAction,
 			ETriggerEvent::Triggered,
 			this,
-			&AADPlayerCharacter::Look
-		);
+			&AADPlayerCharacter::Look);
 	}
 
 	if (IsValid(JumpAction))
@@ -148,15 +151,13 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			JumpAction,
 			ETriggerEvent::Started,
 			this,
-			&AADPlayerCharacter::StartJump
-		);
+			&AADPlayerCharacter::StartJump);
 
 		EnhancedInputComponent->BindAction(
 			JumpAction,
 			ETriggerEvent::Completed,
 			this,
-			&AADPlayerCharacter::StopJump
-		);
+			&AADPlayerCharacter::StopJump);
 	}
 
 	if (IsValid(SelectTargetAction))
@@ -225,6 +226,15 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			this,
 			&AADPlayerCharacter::ActivateAbility4
 		);
+	}
+
+	if (IsValid(Trap1Action))
+	{
+		EnhancedInputComponent->BindAction(
+			Trap1Action,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::ActivateTrap1);
 	}
 }
 
@@ -317,6 +327,20 @@ void AADPlayerCharacter::GrantStartupAbility(TSubclassOf<UGameplayAbility> Abili
 
 void AADPlayerCharacter::SelectTarget(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(TrapPlacementComponent) && TrapPlacementComponent->IsPlacing())
+	{
+		const auto bPlaced = TrapPlacementComponent->ConfirmPlacement();
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("Trap ConfirmPlacement: %s"),
+			bPlaced
+				? TEXT("SUCCESS")
+				: TEXT("FAILED")
+		);
+		return;
+	}
+	
 	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
 	{
 		if (GroundTargetingComponent->ConfirmTargeting())
@@ -345,6 +369,12 @@ void AADPlayerCharacter::SelectTarget(const FInputActionValue& /*Value*/)
 
 void AADPlayerCharacter::StartCameraLook(const FInputActionValue& Value)
 {
+	if (IsValid(TrapPlacementComponent) && TrapPlacementComponent->IsPlacing())
+	{
+		TrapPlacementComponent->CancelPlacement();
+		return;
+	}
+	
 	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
 	{
 		GroundTargetingComponent->CancelTargeting();
@@ -376,9 +406,14 @@ void AADPlayerCharacter::StopCameraLook(const FInputActionValue& Value)
 
 void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(TrapPlacementComponent) && TrapPlacementComponent->IsPlacing())
+	{
+		TrapPlacementComponent->CancelPlacement();
+	}
+	
 	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
 	{
-		return;
+		GroundTargetingComponent->CancelTargeting();
 	}
 	
 	UAbilitySystemComponent* AbilitySystem = GetAbilitySystemComponent();
@@ -399,9 +434,14 @@ void AADPlayerCharacter::ActivateAbility1(const FInputActionValue& /*Value*/)
 
 void AADPlayerCharacter::ActivateAbility2(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(TrapPlacementComponent) && TrapPlacementComponent->IsPlacing())
+	{
+		TrapPlacementComponent->CancelPlacement();
+	}
+	
 	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
 	{
-		return;
+		GroundTargetingComponent->CancelTargeting();
 	}
 	
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
@@ -412,9 +452,14 @@ void AADPlayerCharacter::ActivateAbility2(const FInputActionValue& /*Value*/)
 
 void AADPlayerCharacter::ActivateAbility3(const FInputActionValue& /*Value*/)
 {
+	if (IsValid(TrapPlacementComponent) && TrapPlacementComponent->IsPlacing())
+	{
+		TrapPlacementComponent->CancelPlacement();
+	}
+	
 	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
 	{
-		return;
+		GroundTargetingComponent->CancelTargeting();
 	}
 	
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
@@ -430,15 +475,14 @@ void AADPlayerCharacter::ActivateAbility4(const FInputActionValue& /*Value*/)
 	{
 		return;
 	}
-	
+		
 	if (!IsValid(GroundTargetingComponent) || !Ability4Class) { return; }
 
-	if (GroundTargetingComponent->IsTargeting())
+	if (IsValid(TrapPlacementComponent) && TrapPlacementComponent->IsPlacing())
 	{
-		GroundTargetingComponent->CancelTargeting();
-		return;
+		TrapPlacementComponent->CancelPlacement();
 	}
-
+	
 	const auto* GroundAbility = Cast<UADGA_GroundTargetedArea>(
 		Ability4Class->GetDefaultObject());
 	if (!IsValid(GroundAbility) || !GroundAbility->GetTargetPreviewActorClass())
@@ -462,6 +506,24 @@ void AADPlayerCharacter::CancelAbilitiesInterruptedByMovement()
 		AbilitiesToCancel.AddTag(ADGameplayTags::Ability_CancelOnMovement);
 		AbilitySystem->CancelAbilities(&AbilitiesToCancel, nullptr, nullptr);
 	}
+}
+
+void AADPlayerCharacter::ActivateTrap1()
+{
+	if (!IsValid(TrapPlacementComponent) || !IsValid(Trap1Data)) { return; }
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (IsValid(ASC) && ASC->HasMatchingGameplayTag(ADGameplayTags::State_Casting))
+	{
+		return;
+	}
+
+	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
+	{
+		GroundTargetingComponent->CancelTargeting();
+	}
+	
+	TrapPlacementComponent->StartPlacement(Trap1Data);
 }
 
 UADGameplayAbility* AADPlayerCharacter::GetAbilityInstance(
@@ -527,4 +589,42 @@ float AADPlayerCharacter::GetCoins() const
 	return IsValid(PlayerResourceAttributes)
 		? PlayerResourceAttributes->GetCoins()
 		: 0.0f;
+}
+
+bool AADPlayerCharacter::CanAffordCoins(const int32 Amount) const
+{
+	return (Amount <= 0 || GetCoins() >= static_cast<float>(Amount));
+}
+
+bool AADPlayerCharacter::SpendCoins(const int32 Amount)
+{
+	if (!CanAffordCoins(Amount) || Amount <= 0) { return false; }
+
+	return ApplyCoinDelta(-static_cast<float>(Amount));
+}
+
+void AADPlayerCharacter::AddCoins(const int32 Amount)
+{
+	if (Amount <= 0) { return; }
+
+	ApplyCoinDelta(static_cast<float>(Amount));
+}
+
+bool AADPlayerCharacter::ApplyCoinDelta(const float Delta)
+{
+	if (!HasAuthority()	|| !CoinModificationEffect) { return false;	}
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!IsValid(ASC)) { return false; }
+
+	auto Context = ASC->MakeEffectContext();
+	Context.AddSourceObject(this);
+
+	auto Spec = ASC->MakeOutgoingSpec(CoinModificationEffect, 1.0f, Context);
+	if (!Spec.IsValid()) { return false; }
+
+	Spec.Data->SetSetByCallerMagnitude(ADGameplayTags::Data_Resource_Coins, Delta);
+	ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+
+	return true;
 }

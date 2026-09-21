@@ -16,6 +16,8 @@ class UADCastComponent;
 class UADGroundTargetingComponent;
 class UADPlayerResourceAttributeSet;
 class UGameplayEffect;
+class UADTrapPlacementComponent;
+class UADTrapDataAsset;
 
 /**
  * Player-controlled character.
@@ -32,7 +34,16 @@ public:
 
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-		
+
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	bool CanAffordCoins(int32 Amount) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Resources")
+	bool SpendCoins(int32 Amount);
+
+	UFUNCTION(BlueprintCallable, Category = "Resources")
+	void AddCoins(int32 Amount);
+	
 	UFUNCTION(BlueprintPure, Category = "Ground Targeting")
 	UADGroundTargetingComponent* GetGroundTargetingComponent() const;
 	
@@ -59,7 +70,7 @@ public:
 	
 protected:
 	virtual void BeginPlay() override;
-		
+	
 	/** Camera boom that keeps the camera behind the character. */
 	UPROPERTY(
 		VisibleAnywhere,
@@ -221,17 +232,43 @@ protected:
 		VisibleAnywhere,
 		BlueprintReadOnly,
 		Category = "Ability System",
-		meta = (AllowPrivateAccess = "true")
-	)
+		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UADPlayerResourceAttributeSet> PlayerResourceAttributes;
 
 	UPROPERTY(
 		EditDefaultsOnly,
 		BlueprintReadOnly,
 		Category = "Ability System|Initialization",
-		meta = (AllowPrivateAccess = "true")
-	)
+		meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UGameplayEffect> InitialResourcesEffect;
+
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Ability System|Resources",
+		meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayEffect> CoinModificationEffect;
+
+	UPROPERTY(
+		VisibleAnywhere,
+		BlueprintReadOnly,
+		Category = "Components",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UADTrapPlacementComponent> TrapPlacementComponent;
+
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> Trap1Action;
+
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Traps",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UADTrapDataAsset> Trap1Data;
 	
 	bool bCameraLookActive = false;
 
@@ -243,11 +280,17 @@ private:
 	void SelectTarget(const FInputActionValue& Value);
 	void StartCameraLook(const FInputActionValue& Value);
 	void StopCameraLook(const FInputActionValue& Value);
+
 	void ActivateAbility1(const FInputActionValue& Value);
 	void ActivateAbility2(const FInputActionValue& Value);
 	void ActivateAbility3(const FInputActionValue& Value);
 	void ActivateAbility4(const FInputActionValue& Value);
+
+	void ActivateTrap1();
+	
 	void ApplyInitialResources();
+	bool ApplyCoinDelta(float Delta);
+	
 	void CancelAbilitiesInterruptedByMovement();
 
 	void GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass);

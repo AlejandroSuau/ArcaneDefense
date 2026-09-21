@@ -31,4 +31,9 @@ namespace ADGameplayTags
 		Cooldown_Meteor,
 		"Cooldown.Ability.Meteor",
 		"Cooldown state for Meteor.");
+
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(
+		Data_Resource_Coins,
+		"Data.Resource.Coins",
+		"SetByCaller magnitude used for coin transactions.");
 }

@@ -5,7 +5,9 @@
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/SphereComponent.h"
 #include "Traps/ADTrapDataAsset.h"
+#include "Traps/ADTrapPlacementSlot.h"
 
 AADTrapBase::AADTrapBase()
 {
@@ -13,26 +15,26 @@ AADTrapBase::AADTrapBase()
 
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	SetRootComponent(SceneRoot);
-
-	TriggerVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("TriggerVolume"));
-	TriggerVolume->SetupAttachment(SceneRoot);
-	TriggerVolume->InitBoxExtent(FVector(100.0f, 100.0f, 75.0f));
-	TriggerVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	TriggerVolume->SetCollisionObjectType(ECC_WorldDynamic);
-	TriggerVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
-	TriggerVolume->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	TriggerVolume->SetGenerateOverlapEvents(true);
+	
+	ActivationVolume = CreateDefaultSubobject<USphereComponent>(TEXT("ActivationVolume"));
+	ActivationVolume->SetupAttachment(SceneRoot);
+	ActivationVolume->InitSphereRadius(100.0f);
+	ActivationVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	ActivationVolume->SetCollisionObjectType(ECC_WorldDynamic);
+	ActivationVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
+	ActivationVolume->SetCollisionResponseToChannel(ECC_Pawn,ECR_Overlap);
+	ActivationVolume->SetGenerateOverlapEvents(true);
 }
 
 void AADTrapBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TriggerVolume->OnComponentBeginOverlap.AddUniqueDynamic(
-		this, &AADTrapBase::HandleTriggerBeginOverlap);
+	ActivationVolume->OnComponentBeginOverlap.AddUniqueDynamic(
+		this, &AADTrapBase::HandleActivationBeginOverlap);
 
-	TriggerVolume->OnComponentEndOverlap.AddUniqueDynamic(
-		this, &AADTrapBase::HandleTriggerEndOverlap);
+	ActivationVolume->OnComponentEndOverlap.AddUniqueDynamic(
+		this, &AADTrapBase::HandleActivationEndOverlap);
 
 	if (IsValid(TrapData))
 	{
@@ -42,40 +44,52 @@ void AADTrapBase::BeginPlay()
 
 void AADTrapBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (IsValid(TriggerVolume))
+	if (IsValid(ActivationVolume))
 	{
-		TriggerVolume->OnComponentBeginOverlap.RemoveDynamic(
-			this, &AADTrapBase::HandleTriggerBeginOverlap);
+		ActivationVolume->OnComponentBeginOverlap.RemoveDynamic(
+			this, &AADTrapBase::HandleActivationBeginOverlap);
 
-		TriggerVolume->OnComponentEndOverlap.RemoveDynamic(
-			this, &AADTrapBase::HandleTriggerEndOverlap);
+		ActivationVolume->OnComponentEndOverlap.RemoveDynamic(
+			this, &AADTrapBase::HandleActivationEndOverlap);
 	}
 
+	if (AADTrapPlacementSlot* Slot = PlacementSlot.Get())
+	{
+		Slot->Release(this);
+	}
+
+	PlacementSlot.Reset();
+
+	
 	Super::EndPlay(EndPlayReason);
 }
 
 void AADTrapBase::InitializeTrap(
 	UADTrapDataAsset* InTrapData,
 	UAbilitySystemComponent* InSourceAbilitySystem,
-	const int32 InPurchasePrice)
+	const int32 InPurchasePrice,
+	AADTrapPlacementSlot* InPlacementSlot)
 {
-	if (!IsValid(InTrapData)) { return;	}
+	if (!IsValid(InTrapData) || !IsValid(InPlacementSlot)) { return; }
 
 	TrapData = InTrapData;
 	SourceAbilitySystem = InSourceAbilitySystem;
-	PurchasePrice = FMath::Max(0, InPurchasePrice);
+	PurchasePrice = FMath::Max(0,InPurchasePrice);
+	PlacementSlot = InPlacementSlot;
 
 	ApplyTrapData();
 }
-
 void AADTrapBase::ApplyTrapData()
 {
-	if (!IsValid(TrapData) || !IsValid(TriggerVolume)) { return; }
+	if (!IsValid(TrapData)) { return; }
 
-	TriggerVolume->SetBoxExtent(TrapData->TriggerBoxExtent, true);
+	if (IsValid(ActivationVolume))
+	{
+		ActivationVolume->SetSphereRadius(TrapData->ActivationRadius,true);
+	}
 }
 
-void AADTrapBase::HandleTriggerBeginOverlap(
+void AADTrapBase::HandleActivationBeginOverlap(
 	UPrimitiveComponent* /*OverlappedComponent*/,
 	AActor* OtherActor,
 	UPrimitiveComponent* OtherComponent,
@@ -95,7 +109,7 @@ void AADTrapBase::HandleTriggerBeginOverlap(
 	HandleEnemyEnteredTrigger(Enemy);
 }
 
-void AADTrapBase::HandleTriggerEndOverlap(
+void AADTrapBase::HandleActivationEndOverlap(
 	UPrimitiveComponent* /*OverlappedComponent*/,
 	AActor* OtherActor,
 	UPrimitiveComponent* OtherComponent,
@@ -121,10 +135,10 @@ void AADTrapBase::GetValidEnemiesInTrigger(TArray<AADEnemyCharacter*>& OutEnemie
 {
 	OutEnemies.Reset();
 
-	if (!IsValid(TriggerVolume))	{ return; }
+	if (!IsValid(ActivationVolume))	{ return; }
 
 	TArray<AActor*> OverlappingActors;
-	TriggerVolume->GetOverlappingActors(
+	ActivationVolume->GetOverlappingActors(
 		OverlappingActors, AADEnemyCharacter::StaticClass());
 
 	for (auto* OverlappingActor : OverlappingActors)
@@ -156,6 +170,16 @@ int32 AADTrapBase::GetExpectedSellValue() const
 	if (!IsValid(TrapData)) { return 0; }
 
 	return FMath::RoundToInt(static_cast<float>(PurchasePrice) * TrapData->SellRefundRatio);
+}
+
+float AADTrapBase::GetActivationRadius() const
+{
+	return IsValid(TrapData) ? TrapData->ActivationRadius : 0.0f;
+}
+
+float AADTrapBase::GetEffectRadius() const
+{
+	return IsValid(TrapData) ? TrapData->EffectRadius : 0.0f;
 }
 
 int32 AADTrapBase::GetValidEnemyCount() const

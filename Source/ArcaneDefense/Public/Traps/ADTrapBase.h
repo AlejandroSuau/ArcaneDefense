@@ -5,17 +5,18 @@
 #include "ADTrapBase.generated.h"
 
 class AADEnemyCharacter;
+class AADTrapPlacementSlot;
 class UAbilitySystemComponent;
 class UADTrapDataAsset;
-class UBoxComponent;
 class UPrimitiveComponent;
 class USceneComponent;
+class USphereComponent;
 
 /**
- * Base runtime actor for placeable traps.
+ * Common runtime base for placed traps.
  *
- * This class owns common trap identity, ownership and enemy detection.
- * Concrete subclasses decide what happens when enemies enter or leave.
+ * Owns trap identity, source attribution, placement ownership
+ * and activation-range enemy detection.
  */
 UCLASS(Blueprintable)
 class ARCANEDEFENSE_API AADTrapBase
@@ -35,9 +36,9 @@ public:
 	void InitializeTrap(
 		UADTrapDataAsset* InTrapData,
 		UAbilitySystemComponent* InSourceAbilitySystem,
-		int32 InPurchasePrice
-	);
-
+		int32 InPurchasePrice,
+		AADTrapPlacementSlot* InPlacementSlot);
+	
 	UFUNCTION(BlueprintPure, Category = "Trap")
 	UADTrapDataAsset* GetTrapData() const;
 
@@ -51,69 +52,56 @@ public:
 	int32 GetExpectedSellValue() const;
 
 	UFUNCTION(BlueprintPure, Category = "Trap")
+	float GetActivationRadius() const;
+
+	UFUNCTION(BlueprintPure, Category = "Trap")
+	float GetEffectRadius() const;
+
+	UFUNCTION(BlueprintPure, Category = "Trap")
 	int32 GetValidEnemyCount() const;
+
 
 protected:
 	virtual void BeginPlay() override;
-
-	virtual void EndPlay(
-		const EEndPlayReason::Type EndPlayReason
-	) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/**
 	 * Extension point for discrete or persistent trap behavior.
 	 */
-	virtual void HandleEnemyEnteredTrigger(
-		AADEnemyCharacter* Enemy
-	);
+	virtual void HandleEnemyEnteredTrigger(AADEnemyCharacter* Enemy);
+	virtual void HandleEnemyExitedTrigger(AADEnemyCharacter* Enemy);
+	void GetValidEnemiesInTrigger(TArray<AADEnemyCharacter*>& OutEnemies) const;
 
-	virtual void HandleEnemyExitedTrigger(
-		AADEnemyCharacter* Enemy
-	);
-
-	void GetValidEnemiesInTrigger(
-		TArray<AADEnemyCharacter*>& OutEnemies
-	) const;
-
-	UAbilitySystemComponent*
-		GetSourceAbilitySystem() const;
+	UAbilitySystemComponent* GetSourceAbilitySystem() const;
 
 	UFUNCTION(
 		BlueprintImplementableEvent,
 		Category = "Trap|Presentation",
-		meta = (DisplayName = "Enemy Entered Trap")
-	)
-	void ReceiveEnemyEnteredTrigger(
-		AADEnemyCharacter* Enemy
-	);
+		meta = (DisplayName = "Enemy Entered Trap"))
+	void ReceiveEnemyEnteredTrigger(AADEnemyCharacter* Enemy);
 
 	UFUNCTION(
 		BlueprintImplementableEvent,
 		Category = "Trap|Presentation",
-		meta = (DisplayName = "Enemy Exited Trap")
-	)
-	void ReceiveEnemyExitedTrigger(
-		AADEnemyCharacter* Enemy
-	);
+		meta = (DisplayName = "Enemy Exited Trap"))
+	void ReceiveEnemyExitedTrigger(AADEnemyCharacter* Enemy);
 
 private:
 	UFUNCTION()
-	void HandleTriggerBeginOverlap(
+	void HandleActivationBeginOverlap(
 		UPrimitiveComponent* OverlappedComponent,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComponent,
 		int32 OtherBodyIndex,
 		bool bFromSweep,
-		const FHitResult& SweepResult
-	);
+		const FHitResult& SweepResult);
 
 	UFUNCTION()
-	void HandleTriggerEndOverlap(
+	void HandleActivationEndOverlap(
 		UPrimitiveComponent* OverlappedComponent,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComponent,
-		int32 OtherBodyIndex
-	);
+		int32 OtherBodyIndex);
 
 	void ApplyTrapData();
 
@@ -121,8 +109,7 @@ private:
 		VisibleAnywhere,
 		BlueprintReadOnly,
 		Category = "Components",
-		meta = (AllowPrivateAccess = "true")
-	)
+		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USceneComponent> SceneRoot;
 
 	UPROPERTY(
@@ -130,7 +117,7 @@ private:
 		BlueprintReadOnly,
 		Category = "Components",
 		meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UBoxComponent> TriggerVolume;
+	TObjectPtr<USphereComponent> ActivationVolume;
 
 	/**
 	 * EditInstanceOnly allows manual level testing during development.
@@ -140,18 +127,17 @@ private:
 		EditInstanceOnly,
 		BlueprintReadOnly,
 		Category = "Trap",
-		meta = (AllowPrivateAccess = "true")
-	)
+		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UADTrapDataAsset> TrapData;
 
-	TWeakObjectPtr<UAbilitySystemComponent>
-		SourceAbilitySystem;
+	TWeakObjectPtr<UAbilitySystemComponent>	SourceAbilitySystem;
 
 	UPROPERTY(
 		VisibleInstanceOnly,
 		BlueprintReadOnly,
 		Category = "Trap|Economy",
-		meta = (AllowPrivateAccess = "true")
-	)
+		meta = (AllowPrivateAccess = "true"))
 	int32 PurchasePrice = 0;
+
+	TWeakObjectPtr<AADTrapPlacementSlot> PlacementSlot;
 };
