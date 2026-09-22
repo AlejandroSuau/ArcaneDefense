@@ -30,13 +30,15 @@ Core gameplay rules are implemented in C++.
 
 Blueprints and Data Assets primarily own presentation, asset composition, VFX, UI and configurable gameplay values.
 
-Systems are separated by responsibility instead of by individual content item.
+Systems are separated by responsibility rather than by individual content item.
 
-Abstractions are introduced only when the current gameplay requirements justify them.
+New abstractions are introduced only when concrete gameplay requirements justify them.
 
-## Current Source Structure
+---
 
-```text id="uf39es"
+# Source Structure
+
+```text
 Source/
 └── ArcaneDefense/
     ├── AbilitySystem/
@@ -111,40 +113,42 @@ Source/
         └── ADWaveDirector.cpp
 ```
 
-## Gameplay Ability System
+---
 
-The project uses Unreal Engine's Gameplay Ability System for combat state, resource state, abilities, costs, cooldowns, damage and temporary effects.
+# Gameplay Ability System
+
+The project uses Unreal Engine's Gameplay Ability System for combat state, player resources, abilities, costs, cooldowns, damage and temporary effects.
 
 The player owns a single `UAbilitySystemComponent`.
 
-Multiple Attribute Sets separate different responsibilities instead of introducing additional Ability System Components.
+Different responsibilities are represented by separate Attribute Sets rather than separate player ASCs.
 
 ## Combat Attributes
 
 `UADAttributeSet` currently contains:
 
-```text id="o7y26o"
+```text
 Health
 MaxHealth
 Mana
 MaxMana
 ```
 
-It is shared by applicable gameplay Actors and handles Health/Mana validation and out-of-health behavior.
+It is shared by applicable gameplay Actors and handles combat-attribute validation and out-of-health behavior.
 
-## Player Resource Attributes
+## Player Resources
 
-`UADPlayerResourceAttributeSet` contains player-specific economic resources:
+`UADPlayerResourceAttributeSet` contains:
 
-```text id="ca25kf"
+```text
 Coins
 ```
 
-Coins are intentionally separated from the combat Attribute Set because enemies and the Defense Objective do not participate in the player's construction economy.
+Coins are player-specific and intentionally separated from the shared combat Attribute Set.
 
-The player Ability System therefore conceptually contains:
+The player ASC conceptually contains:
 
-```text id="nijynl"
+```text
 AbilitySystemComponent
 ├── UADAttributeSet
 │   ├── Health
@@ -158,186 +162,183 @@ AbilitySystemComponent
 
 Initial Coins are configured through:
 
-```text id="wm6rh7"
+```text
 GE_InitializePlayerResources
 ```
 
 Coin transactions use:
 
-```text id="zp7c5u"
+```text
 GE_ModifyCoins
 ```
 
-with the SetByCaller Gameplay Tag:
+with:
 
-```text id="l9pwbt"
+```text
 Data.Resource.Coins
 ```
 
-The same Gameplay Effect can therefore support:
+as a SetByCaller Gameplay Tag.
 
-```text id="ovl65u"
-Trap purchase
-    → negative magnitude
+The same Gameplay Effect can therefore support purchases, future sales and future enemy rewards.
 
-Trap sale
-    → positive magnitude
+---
 
-Enemy reward
-    → positive magnitude
-```
+# Player Ability Kit
 
-The player exposes resource operations such as:
+The current combat kit is:
 
-```text id="9pwmnr"
-CanAffordCoins()
-SpendCoins()
-AddCoins()
-```
-
-while GAS remains responsible for modifying the actual Attribute.
-
-## Player Ability Kit
-
-The current player combat kit is:
-
-```text id="a92uwk"
+```text
 1 → Arcane Bolt
 2 → Burn
 3 → Frost Nova
 4 → Meteor
 ```
 
-### Arcane Bolt
+## Arcane Bolt
 
 Targeted cast-time spell delivered through a reusable homing projectile.
 
-### Burn
+## Burn
 
-Targeted duration Gameplay Effect that periodically damages the target.
+Targeted duration Gameplay Effect that periodically damages its target.
 
-### Frost Nova
+## Frost Nova
 
 Instant radial crowd-control ability that applies `State.Rooted`.
 
-### Meteor
+## Meteor
 
-Ground-targeted cast-time AoE spell using an interactive world-location targeting mode.
+Ground-targeted cast-time area spell.
 
-All four abilities currently use independent GAS costs and cooldowns.
+All current player abilities use GAS costs and independent cooldowns.
 
-## Targeting Architecture
+---
 
-Actor targeting and ground targeting are deliberately separate systems.
+# Targeting Architecture
 
-```text id="6vkeh0"
+Actor targeting and ground targeting remain separate systems.
+
+```text
 UADTargetingComponent
-    → selected enemy Actor
+    → enemy Actor selection
 
 UADGroundTargetingComponent
-    → selected world location
+    → world-position targeting
 ```
 
-This prevents enemy selection, ground-targeted spells and trap placement from becoming one monolithic targeting system.
+Trap placement is also kept separate from both.
 
-## Casting
+This prevents unrelated interaction systems from becoming a single monolithic targeting component.
 
-`UADCastComponent` exposes presentation state for cast-time abilities.
+---
 
-Gameplay Ability Tasks remain responsible for actual cast timing.
+# Casting
+
+`UADCastComponent` exposes cast presentation state.
+
+Gameplay Abilities and Ability Tasks remain responsible for actual ability execution and timing.
 
 Movement can interrupt abilities tagged for movement cancellation.
 
 Cost and cooldown are committed only when a cast successfully completes.
 
-## Projectile Architecture
+---
 
-`AADProjectile` provides reusable homing projectile behavior.
+# Projectile Architecture
 
-The projectile transports a prepared Gameplay Effect Spec from the player's Ability System to the target's Ability System.
+`AADProjectile` provides reusable homing-projectile behavior.
 
-Projectile visuals and impact presentation remain Blueprint responsibilities.
+The projectile transports a prepared Gameplay Effect Spec from the source Ability System to the target Ability System.
 
-## Enemy Architecture
+Visuals and impact presentation remain Blueprint responsibilities.
 
-`AADEnemyCharacter` derives from the shared character base and participates in GAS combat.
+---
+
+# Enemy Architecture
+
+`AADEnemyCharacter` derives from the shared character architecture and participates in GAS combat.
 
 `AADEnemyAIController` owns navigation toward the Defense Objective.
 
-Temporary GAS states can affect navigation.
+Temporary GAS states can affect movement.
 
-For example:
+Example:
 
-```text id="llggir"
+```text
 State.Rooted
     ↓
 stop movement
     ↓
 effect expires
     ↓
-resume movement toward objective
+resume navigation
 ```
 
-## Defense Objective
+---
 
-`AADDefenseObjective` owns its own Ability System Component and uses the shared Health Attribute architecture.
+# Defense Objective
 
-Enemies reaching the objective periodically apply damage through Gameplay Effects.
+`AADDefenseObjective` owns an Ability System Component and uses the shared Health Attribute architecture.
+
+Enemies reaching it periodically apply damage.
 
 Zero Health produces match defeat.
 
-## Wave Architecture
+---
+
+# Wave Architecture
 
 Wave responsibilities are separated into:
 
-```text id="zc2wsf"
+```text
 UADWaveDataAsset
-    → WHAT and WHEN to spawn
+    → WHAT / WHEN
 
 AADSpawnPoint
-    → WHERE to spawn
+    → WHERE
 
 AADWaveDirector
-    → EXECUTION and lifecycle
+    → EXECUTION / LIFECYCLE
 ```
 
-`AADWaveDirector` distinguishes:
+`AADWaveDirector` distinguishes spawning completion from actual wave completion.
 
-```text id="fxwqhe"
-Finished spawning enemies
+A wave finishes only after:
+
+```text
+all configured enemies have spawned
++
+all tracked enemies have been defeated
 ```
 
-from:
+The current prototype supports multiple sequential waves and final victory.
 
-```text id="4zgbn0"
-Wave actually completed
-```
+---
 
-A wave completes only after spawning has finished and all tracked enemies have been defeated.
-
-The provisional implementation currently supports multiple consecutive waves and final victory.
-
-## Match Result
+# Match Result
 
 `AADGameMode` owns the authoritative match result:
 
-```text id="k65cr7"
+```text
 InProgress
 Victory
 Defeat
 ```
 
-Gameplay systems should not unnecessarily depend directly on `GameMode`.
+Gameplay systems should avoid unnecessary direct dependencies on `GameMode`.
 
-In particular, local trap placement currently validates placement rules directly rather than querying `GameMode` every frame.
+Trap placement currently validates its own placement conditions instead of querying `GameMode` every frame.
 
-## Construction Economy
+---
+
+# Construction Economy
 
 The player receives an initial amount of Coins.
 
-Current and planned economy flow:
+Current and planned flow:
 
-```text id="cnfk2h"
+```text
 Match Start
     ↓
 Initial Coins
@@ -357,25 +358,27 @@ future Coin refund
 
 Construction is allowed:
 
-```text id="bizwhh"
-During waves       YES
-Between waves      YES
+```text
+During waves      YES
+Between waves     YES
 ```
 
-Trap selling is planned to be allowed:
+Selling is planned to be allowed:
 
-```text id="34bs75"
-During waves       NO
-Between waves      YES
+```text
+During waves      NO
+Between waves     YES
 ```
 
-## Trap Data
+---
+
+# Trap Data
 
 `UADTrapDataAsset` describes configurable trap content.
 
-Current properties include:
+Current data includes:
 
-```text id="5c0fkk"
+```text
 Display Name
 Icon
 
@@ -385,335 +388,302 @@ Placement Preview Class
 Construction Cost
 Sell Refund Ratio
 
-Activation Radius
-Effect Radius
+Activation Range
 
 Can Place On Floor
 Can Place On Wall
 ```
 
-The Data Asset contains configuration only.
+There is no longer a separate activation radius and effect radius.
 
-Runtime behavior belongs to the trap Actor.
+The same configured area is used both to trigger the trap and to determine which enemies are affected when it executes.
 
-Placement interaction belongs to the placement system.
+---
 
-## Activation Radius vs Effect Radius
+# Standard Trap Footprint
 
-Trap range is intentionally split into two concepts.
+Arcane Defense currently uses one fixed trap footprint.
 
-### Activation Radius
+```text
+Base tile
+    100 × 100 cm
 
-```text id="vfmhak"
-ActivationRadius
+Trap slot
+    200 × 200 cm
+    = 2 × 2 floor tiles
+
+Trap
+    approximately 200 × 200 cm
+    = exactly one placement slot
 ```
 
-determines how close an enemy must come before the trap reacts.
+Variable trap sizes are deliberately not supported.
 
-At runtime this is represented by the persistent `USphereComponent` owned by `AADTrapBase`.
+There are no runtime trap footprints, automatic grids or dynamic mesh-scaling rules.
 
-### Effect Radius
+Trap assets and placement slots are authored around this fixed project convention.
 
-```text id="zbjf0v"
-EffectRadius
+---
+
+# Manual Trap Placement Slots
+
+Trap locations are explicitly authored by the level designer.
+
+The placement system does not use:
+
+```text
+free-form placement
+
+automatic runtime grids
+
+grid snapping
+
+generated cells
+
+variable footprints
+
+runtime rotation controls
 ```
 
-determines how far the trap's actual effect reaches once activated.
+Instead, the level contains manually placed:
 
-It does not require a second permanent collision component.
-
-Concrete traps can perform an area query only when their effect executes.
-
-This allows designs such as:
-
-```text id="4hhi5c"
-Activation Radius = 100 cm
-Effect Radius     = 200 cm
-```
-
-where one enemy triggers the trap and multiple nearby enemies can be affected.
-
-## Runtime Trap Architecture
-
-`AADTrapBase` represents a placed trap.
-
-Its shared responsibilities are deliberately limited:
-
-```text id="8z9ynu"
-Own TrapData
-
-Remember Source AbilitySystemComponent
-
-Remember actual PurchasePrice
-
-Remember PlacementSlot
-
-Own ActivationVolume
-
-Detect living enemies entering/leaving ActivationRadius
-```
-
-`AADTrapBase`:
-
-```text id="s8v7l0"
-does NOT Tick
-
-does NOT own its own ASC
-
-does NOT define generic damage
-
-does NOT define a generic cooldown
-
-does NOT calculate placement coordinates
-```
-
-Concrete trap classes implement concrete gameplay behavior.
-
-## Trap Ability System Ownership
-
-A placed trap does not receive another Ability System Component.
-
-Instead:
-
-```text id="7wlb71"
-Player ASC
-    ↓
-places trap
-    ↓
-Trap stores weak Source ASC
-```
-
-Future trap Gameplay Effects can therefore use the player's ASC as their source when applying effects to enemy ASCs.
-
-This preserves gameplay attribution without adding an unnecessary ASC to every placed trap.
-
-## Manual Trap Placement Slots
-
-Trap placement uses explicitly authored level-design positions.
-
-The system does **not** use:
-
-```text id="bz4dz4"
-Free-form world placement
-Automatic world grid
-Runtime grid snapping
-Generated cells
-Trap footprints
-Free rotation
-```
-
-Instead, the level designer manually places:
-
-```text id="ktmhip"
+```text
 AADTrapPlacementSlot
 ```
 
-Actors throughout the map.
+Actors.
 
-Each slot represents exactly one legal trap position.
+Each slot represents exactly one legal trap location.
 
 Conceptually:
 
-```text id="v0aacy"
+```text
 Floor
 
-□   □   □   □
-□   □   □   □
+┌───────┐   ┌───────┐
+│ SLOT  │   │ SLOT  │
+│ 2×2   │   │ 2×2   │
+└───────┘   └───────┘
 ```
 
-and:
+The exact number and location of possible traps is therefore controlled directly through level design.
 
-```text id="5ic8jw"
-Wall
+---
 
-□   □   □
-□   □   □
-```
-
-This makes trap placement deterministic, easy to author and easy to reason about.
-
-## Placement Slot Architecture
+# Placement Slot Architecture
 
 `AADTrapPlacementSlot` owns:
 
-```text id="iysf4a"
+```text
 Slot Type
     Floor / Wall
 
 Slot Half Size
+    currently 100 × 100 cm
 
 Placement Clearance
 
-Exact world transform
+Exact Transform
 
-Current occupying trap
+Current Occupying Trap
 ```
+
+Because half-size is 100×100 cm, the resulting slot is:
+
+```text
+200 × 200 cm
+```
+
+The Actor itself remains at:
+
+```text
+Scale = 1,1,1
+```
+
+The level designer manually positions and rotates each slot.
+
+---
+
+# Placement Orientation Convention
+
+Every slot follows one important coordinate convention:
+
+```text
+Local X / Y
+    → trap surface
+
+Local +Z
+    → away from supporting geometry
+```
+
+For floor traps:
+
+```text
+     +Z
+      ↑
+
+   RANGE
+      ↑
+   ┌────┐
+   │TRAP│
+───┴────┴─── FLOOR
+```
+
+For wall traps:
+
+```text
+WALL
+████│TRAP → +Z → RANGE
+████│
+████│
+```
+
+Because trap range always extends along local `+Z`, the runtime code does not need separate floor/wall range logic.
+
+The slot transform already determines the correct orientation.
+
+---
+
+# Slot Occupancy
 
 A slot can contain at most one trap.
 
-```text id="gl6a5i"
+```text
 Slot free
-    → potential placement
+    → candidate placement
 
 Slot occupied
     → invalid placement
 ```
 
-Slots are manually positioned and rotated by the level designer.
+Trap-to-trap exclusion is controlled through slot ownership rather than general trap collision.
 
-Their local `+Z` axis points away from the supporting surface.
+This deliberately allows adjacent manually authored slots to contain adjacent traps.
 
-For floor slots:
-
-```text id="7gppki"
-+Z
- ↑
-─●──────── floor
+```text
+┌─────────┬─────────┐
+│ Trap A  │ Trap B  │
+│ Slot A  │ Slot B  │
+└─────────┴─────────┘
 ```
 
-For wall slots:
-
-```text id="ntzbuz"
-wall │● → +Z
-```
-
-The slot transform therefore defines both the exact placement position and exact trap orientation.
-
-## Slot Occupancy
-
-Placed traps do not use collision against neighboring traps to determine whether another trap may be constructed.
-
-Trap-to-trap occupancy is controlled exclusively through the slot:
-
-```text id="ohvizs"
-Slot A occupied
-    → Slot A invalid
-
-Slot B free
-    → Slot B remains valid
-```
-
-This intentionally allows manually authored slots to sit directly beside one another.
-
-If the level designer places two adjacent slots, the placement system trusts that both locations are legitimate construction positions.
+If both slots were authored by the level designer, both positions are treated as valid.
 
 When a trap is destroyed or later sold, `AADTrapBase::EndPlay()` releases its slot automatically.
 
-## Physical Placement Blocking
+---
 
-Slot occupancy and temporary physical blocking solve different problems.
+# Physical Placement Blocking
 
-Slot occupancy prevents:
+Slot occupancy and physical blocking solve different problems.
 
-```text id="jdqrrl"
-two traps using the same slot
+Slot occupancy answers:
+
+```text
+Does another trap already own this slot?
 ```
 
-The `TrapPlacementBlocker` collision channel can prevent placement because of temporary or environmental blockers such as:
+The custom collision channel:
 
-```text id="z61dw5"
+```text
+TrapPlacementBlocker
+```
+
+can answer:
+
+```text
+Is something temporarily or physically preventing
+construction in this otherwise valid slot?
+```
+
+Typical blockers can include:
+
+```text
 Player
 Enemy
 Defense Objective
 Blocking props
-Level geometry that should prevent construction
+Specific level geometry
 ```
 
-Placed traps themselves do not use a generic `PlacementBlockingVolume`.
+Placed traps themselves do not use a generic placement-blocking volume.
 
-This prevents a trap placed in one manually authored slot from incorrectly invalidating an adjacent slot.
+Their relationship with placement is represented by slot ownership.
 
-Trap visual meshes can remain presentation-only with `NoCollision` unless a concrete gameplay requirement later needs physical collision.
+Trap visual meshes can remain `NoCollision` unless a concrete gameplay requirement later justifies physical collision.
 
-## Trap Placement Preview
+---
 
-`AADTrapPlacementPreview` is presentation-only.
+# Trap Placement Component
 
-While the player is placing a trap, C++ supplies:
+`UADTrapPlacementComponent` owns the player's interactive placement process.
 
-```text id="spb5cm"
-Exact slot transform
+Responsibilities:
 
-Placement validity
-
-Activation Radius
-
-Effect Radius
-
-Slot dimensions
-```
-
-Blueprint owns the visual representation.
-
-The current convention is:
-
-```text id="uolfwn"
-Trap Ghost
-
-Green
-    → placement valid
-
-Red
-    → placement invalid
-```
-
-The preview also displays both gameplay ranges.
-
-```text id="26lg9r"
-Activation Range
-    → visual representation of ActivationRadius
-
-Effect Range
-    → visual representation of EffectRadius
-```
-
-These remain visible before the player spends Coins, allowing the player to evaluate the usefulness of a slot.
-
-Preview range visuals have no gameplay collision.
-
-## Trap Placement Component
-
-`UADTrapPlacementComponent` owns interactive trap placement.
-
-Its responsibilities are:
-
-```text id="bnvtke"
+```text
 Select TrapData
 
 Spawn preview
 
-Trace slot under cursor
+Find placement slot under cursor
 
-Move preview to exact slot transform
+Move preview exactly to slot transform
 
 Check Floor / Wall compatibility
 
 Check slot occupancy
 
-Check temporary physical blockers
+Check configured physical blockers
 
 Check player Coins
 
-Display valid / invalid state
+Display valid / invalid feedback
 
 Confirm placement
 
-Charge Coins
+Spend Coins
 
-Spawn runtime trap
+Spawn trap
 
 Cancel placement
 ```
 
-The component only ticks while placement mode is active.
+The component only ticks while Placement Mode is active.
 
-Outside placement mode its Tick is disabled.
+Outside placement it has no active Tick.
 
-## Placement Transaction
+---
 
-A successful trap purchase follows:
+# Placement Input
 
-```text id="k4bqbl"
+Current provisional controls are:
+
+```text
+5
+    enter / exit Trap 1 placement
+
+Left Mouse Button
+    confirm placement
+
+Right Mouse Button
+    cancel placement
+```
+
+There is no runtime trap rotation.
+
+The slot defines the final trap orientation.
+
+After successfully constructing a trap, Placement Mode remains active so repeated placement is fast.
+
+Player spell activation is blocked while Trap Placement Mode is active.
+
+---
+
+# Placement Transaction
+
+Successful construction follows:
+
+```text
 Valid slot
     ↓
 Revalidate slot / blockers / Coins
@@ -724,7 +694,7 @@ Slot.TryOccupy()
     ↓
 Spend Coins through GAS
     ↓
-Trap.InitializeTrap(
+InitializeTrap(
     TrapData,
     Player ASC,
     Actual Purchase Price,
@@ -736,134 +706,393 @@ FinishSpawningActor
 
 The placed trap therefore knows:
 
-```text id="m2siwy"
-what trap definition created it
+```text
+its TrapData
 
-who placed it
+its source Player ASC
 
-how much was actually paid
+its actual PurchasePrice
 
-which slot it owns
+its owning PlacementSlot
 ```
 
-## Trap Purchase Price
+---
 
-Placed traps preserve the exact purchase price.
+# Purchase Price
 
-Future refunds will therefore use:
+Placed traps preserve the exact amount paid.
 
-```text id="dxsf0s"
+Future sale refunds will therefore use:
+
+```text
 Actual PurchasePrice
 ×
 SellRefundRatio
 ```
 
-instead of recalculating from the Data Asset base cost.
+rather than recalculating from the Data Asset base cost.
 
-This prevents economy exploits when future talents or effects modify trap prices.
+This prepares the system for future cost-changing talents or other modifiers.
 
-## Placement Input
+---
 
-Current provisional controls:
+# Trap Runtime Architecture
 
-```text id="atci5x"
-5
-    Enter / exit Trap 1 placement mode
+`AADTrapBase` represents the common runtime behavior of placed traps.
 
-Left Mouse Button
-    Confirm trap placement
+Its responsibilities are deliberately limited:
 
-Right Mouse Button
-    Cancel trap placement
+```text
+Own TrapData
+
+Remember Source AbilitySystemComponent
+
+Remember actual PurchasePrice
+
+Remember PlacementSlot
+
+Own ActivationVolume
+
+Detect enemies entering/leaving the active area
 ```
 
-There is no trap rotation input.
+`AADTrapBase` does not:
 
-The placement slot itself defines the final orientation.
+```text
+Tick
 
-After successful placement, placement mode remains active so the player can quickly place additional traps.
+own another ASC
 
-Spell activation is disabled while trap placement mode is active.
+implement generic damage
 
-## Collision Channels
+implement generic cooldown
 
-The trap placement system currently uses dedicated collision channels for two different queries.
+calculate placement coordinates
 
-```text id="f93o6q"
+generate placement grids
+```
+
+Concrete trap subclasses own concrete gameplay behavior.
+
+---
+
+# Trap GAS Ownership
+
+Placed traps do not own individual Ability System Components.
+
+Instead:
+
+```text
+Player ASC
+    ↓
+places trap
+    ↓
+Trap stores Source ASC
+```
+
+Concrete traps can later build Gameplay Effect Specs using the player's ASC and apply them to enemy ASCs.
+
+This keeps source attribution while avoiding unnecessary ASCs on every trap Actor.
+
+---
+
+# Trap Activation / Effect Volume
+
+Trap activation and trap effect now use the **same physical area**.
+
+The runtime area is represented by:
+
+```text
+UBoxComponent ActivationVolume
+```
+
+rather than a sphere.
+
+The footprint of the volume matches the placement slot:
+
+```text
+200 × 200 cm
+```
+
+The third dimension is configured through:
+
+```text
+ActivationRange
+```
+
+For example:
+
+```text
+Slot / Trap
+    200 × 200 cm
+
+ActivationRange
+    300 cm
+
+Resulting volume
+    200 × 200 × 300 cm
+```
+
+Since `UBoxComponent` uses half-extents, the runtime box becomes:
+
+```text
+X = 100
+Y = 100
+Z = 150
+```
+
+and its center is offset:
+
+```text
+Local Z = 150
+```
+
+so the volume begins at the trap surface and extends only outward.
+
+---
+
+# Floor Trap Range
+
+For a floor slot:
+
+```text
+Local +Z
+    → upward
+```
+
+The volume becomes:
+
+```text
+        200 cm
+     ┌───────────┐
+     │           │
+     │           │
+     │  ACTIVE   │
+300  │   AREA    │
+ cm  │           │
+     │           │
+     ├───────────┤
+     │   TRAP    │
+─────┴───────────┴──── FLOOR
+        200 cm
+```
+
+Enemies entering this rectangular prism can activate the trap.
+
+When the trap executes, enemies currently inside this same volume are candidates for its effect.
+
+---
+
+# Wall Trap Range
+
+For a wall slot:
+
+```text
+Local +Z
+    → horizontally away from the wall
+```
+
+The exact same local Box configuration therefore produces:
+
+```text
+                    ActivationRange
+
+WALL      ┌───────────────────────────────┐
+██████████│                               │
+████ TRAP │          ACTIVE AREA          │
+██████████│                               │
+          └───────────────────────────────┘
+```
+
+No floor/wall conditional code is required for the range volume.
+
+The slot orientation determines the result automatically.
+
+---
+
+# Activation and Effect Semantics
+
+There is no longer a distinction between:
+
+```text
+Activation Radius
+Effect Radius
+```
+
+The project instead uses:
+
+```text
+ActivationRange
+```
+
+and one common rectangular volume.
+
+Runtime flow:
+
+```text
+Enemy enters ActivationVolume
+        ↓
+Concrete trap activates
+        ↓
+Trap queries valid enemies currently overlapping
+the same ActivationVolume
+        ↓
+Trap effect is applied
+```
+
+For a Spike Trap this means one enemy can trigger the trap while all valid enemies currently inside the same box can receive damage.
+
+---
+
+# Trap Placement Preview
+
+`AADTrapPlacementPreview` is presentation-only.
+
+C++ supplies:
+
+```text
+Exact slot transform
+
+Placement validity
+
+ActivationRange
+
+Slot Half Extent
+```
+
+Blueprint owns the visual representation.
+
+The current preview contains conceptually:
+
+```text
+SceneRoot
+├── TrapGhostMesh
+└── RangeVisual
+```
+
+## Trap Ghost
+
+The ghost represents the physical trap position.
+
+Current convention:
+
+```text
+Green
+    → placement valid
+
+Red
+    → placement invalid
+```
+
+Since every trap uses the same 200×200 cm footprint, the ghost is authored around that fixed size.
+
+## Range Visual
+
+`RangeVisual` represents the exact gameplay ActivationVolume.
+
+It uses a translucent Cube with:
+
+```text
+Full X
+    = SlotHalfExtent.X × 2
+
+Full Y
+    = SlotHalfExtent.Y × 2
+
+Full Z
+    = ActivationRange
+```
+
+For the current 200×200 slots and a 300 cm range:
+
+```text
+RangeVisual
+    200 × 200 × 300 cm
+```
+
+Its relative location is:
+
+```text
+Z = ActivationRange / 2
+```
+
+so it begins at the trap surface and extends along the preview's local `+Z`.
+
+Because the preview itself inherits the slot transform, the same Blueprint visualization works for both floor and wall traps.
+
+The range visual communicates gameplay reach only.
+
+It does not determine whether placement is valid.
+
+---
+
+# Collision Channels
+
+The placement system currently uses:
+
+```text
 TrapPlacementSlot
     → cursor selection of placement slots
 
 TrapPlacementBlocker
-    → temporary/environmental placement blockers
+    → environmental / temporary blocking checks
 ```
 
-Slot selection and placement blocking remain separate responsibilities.
+These responsibilities remain intentionally separate.
 
-## C++ / Blueprint Boundary
+---
+
+# C++ / Blueprint Boundary
 
 C++ owns:
 
-```text id="smosjl"
-Economy transactions
+```text
+GAS resource changes
+
+Trap purchasing
 
 Slot occupancy
 
-Placement validation
-
 Cursor-to-slot selection
 
-Trap spawning
+Placement validity
 
-Activation detection
+Trap runtime ownership
 
-Runtime trap ownership
+ActivationVolume
 
-Gameplay-effect source attribution
+Enemy overlap detection
+
+Gameplay Effect source attribution
 ```
 
-Blueprint / Data Assets own:
+Blueprint and Data Assets own:
 
-```text id="emrnzo"
+```text
 Trap meshes
 
 Slot editor visualization
 
-Preview ghost mesh
+Trap ghost presentation
 
-Valid/invalid materials
+Valid / invalid materials
 
-Activation-range visualization
-
-Effect-range visualization
-
-Icons
+Range visualization
 
 VFX
 
-Configurable balance values
+Icons
+
+Balance values such as ActivationRange
 ```
 
-Blueprint presentation cannot override C++ placement validity.
+Blueprint presentation cannot override C++ gameplay validity.
 
-## Tick Policy
+---
 
-Gameplay Tick is avoided unless continuous frame updates are genuinely required.
+# Current Content Structure
 
-Current examples:
-
-```text id="4nxlkm"
-UADTrapPlacementComponent
-    → ticks only during interactive placement
-
-UADGroundTargetingComponent
-    → ticks only during Meteor targeting
-```
-
-`AADTrapBase`, placement slots and trap preview Actors do not require gameplay Tick.
-
-## Current Content Structure
-
-```text id="jf28md"
+```text
 Content/
 └── ArcaneDefense/
     ├── Abilities/
@@ -895,7 +1124,8 @@ Content/
     │   │
     │   ├── Materials/
     │   │   ├── M_TrapPreview_Valid
-    │   │   └── M_TrapPreview_Invalid
+    │   │   ├── M_TrapPreview_Invalid
+    │   │   └── M_TrapPreview_Range
     │   │
     │   └── Previews/
     │       └── BP_ADTrapPreview_Debug
@@ -914,9 +1144,11 @@ Content/
         └── L_Prototype
 ```
 
-## Development Status
+---
 
-```text id="6k2xgw"
+# Development Status
+
+```text
 Day 1  — Project Setup                         Completed
 Day 2  — Player Character                      Completed
 Day 3  — Ability System and Attributes         Completed
@@ -936,41 +1168,61 @@ Day 16 — Player Economy + Trap Foundation      Completed
 Day 17 — Manual Slot-Based Trap Placement      Completed
 ```
 
-## Day 17 Final Result
+---
 
-The final placement architecture deliberately does not use a generated grid.
+# Day 17 Final Result
 
-The level designer explicitly defines every valid trap location by placing `AADTrapPlacementSlot` Actors in the level.
+The final placement architecture uses manually authored trap positions rather than a generated placement grid.
 
-The player selects one of those locations rather than selecting an arbitrary world coordinate.
+Current design rules are:
 
-Placement validity currently considers:
+```text
+Base floor tile
+    100 × 100 cm
 
-```text id="cu6rd7"
-Slot exists
+Trap slot
+    200 × 200 cm
+    = 2 × 2 floor tiles
 
-Trap supports slot type
+Trap footprint
+    200 × 200 cm
 
-Slot is not occupied
-
-No configured physical blocker occupies the slot
-
-Player can afford ConstructionCost
+One slot
+    = maximum one trap
 ```
 
-The preview snaps exactly to the slot transform and displays both the activation and effect ranges.
+The level designer explicitly controls the number, position and orientation of all possible trap locations.
 
-Adjacent manually authored slots can contain adjacent traps without incorrectly blocking one another.
+Adjacent authored slots can contain adjacent traps.
 
-## Current Prototype
+Trap placement is validated using:
 
-The current prototype supports:
+```text
+slot exists
 
-* Four distinct player spells.
-* Targeted combat.
-* Ground-targeted combat.
+trap supports Floor / Wall slot type
+
+slot is not occupied
+
+configured physical blockers are absent
+
+player can afford ConstructionCost
+```
+
+The preview snaps exactly to the selected slot and displays the same rectangular volume that the runtime trap will later use for activation and effect application.
+
+---
+
+# Current Prototype
+
+The project currently supports:
+
+* Four player spells.
+* GAS-based Health, Mana and Coins.
+* Spell costs and cooldowns.
+* Enemy Actor targeting.
+* Ground targeting.
 * Cast interruption.
-* GAS costs and cooldowns.
 * Homing projectiles.
 * Periodic damage.
 * Root crowd control.
@@ -978,50 +1230,57 @@ The current prototype supports:
 * Defense Objective damage.
 * Data-driven waves.
 * Victory and defeat.
-* GAS-based player Coins.
+* Player construction economy.
 * Data-driven trap definitions.
-* Manually authored floor/wall placement slots.
+* Manually authored 200×200 trap slots.
+* Floor and wall slot compatibility.
+* Green/red placement feedback.
 * Economy-backed trap purchases.
-* Green/red trap placement preview.
-* Activation and effect range preview.
-* Multiple adjacent trap placements.
+* Adjacent trap placement.
+* Rectangular activation/effect range preview.
+* Runtime rectangular trap activation volumes.
 
-## Next Milestone — Day 18
+---
 
-Day 18 introduces the first concrete runtime trap:
+# Next Milestone — Day 18
 
-```text id="ftnlcd"
+Day 18 introduces the first concrete trap:
+
+```text
 AADSpikeTrap
 ```
 
-The placement architecture should not require modification.
+The placement system should not require further redesign.
 
-Expected gameplay flow:
+Expected runtime flow:
 
-```text id="f119ev"
-Enemy enters ActivationRadius
+```text
+Enemy enters ActivationVolume
         ↓
-AADSpikeTrap reacts
+AADSpikeTrap activates
         ↓
-query enemies inside EffectRadius
+Get all valid enemies currently overlapping
+ActivationVolume
         ↓
 build GameplayEffectSpec
 using Player Source ASC
         ↓
 GE_SpikeTrap_Damage
         ↓
-apply to Enemy ASC
+apply to each Enemy ASC
         ↓
 Health decreases
 ```
 
 The Spike Trap will own its concrete activation behavior.
 
-If the final Spike design requires a rearm delay, that behavior will belong to `AADSpikeTrap` rather than being imposed on all traps through `AADTrapBase`.
+If Spike requires a rearm delay, that behavior will belong specifically to `AADSpikeTrap` rather than being imposed on every trap through `AADTrapBase`.
 
-## Remaining Roadmap
+---
 
-```text id="rjhc29"
+# Remaining Roadmap
+
+```text
 Day 18 — Spike Trap
 
 Day 19 — Slow Trap
@@ -1056,9 +1315,11 @@ Day 39 — Final Technical README
 Day 40 — Gameplay Video + Screenshots + Portfolio Release
 ```
 
-## Definition of Done
+---
 
-The project is considered complete when it contains:
+# Definition of Done
+
+The final vertical slice requires:
 
 * A packaged 8–12 minute playable match.
 * Four player spells.
@@ -1076,9 +1337,11 @@ The project is considered complete when it contains:
 * Gameplay presentation video.
 * Portfolio-ready build.
 
-## Development Workflow
+---
 
-```text id="v39iro"
+# Development Workflow
+
+```text
 Define verifiable objective
         ↓
 Implement
