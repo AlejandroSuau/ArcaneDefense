@@ -25,13 +25,8 @@ AADProjectile::AADProjectile()
 	CollisionSphere->SetCollisionResponseToChannel(	ECC_WorldStatic,ECR_Block);
 	CollisionSphere->SetGenerateOverlapEvents(true);
 
-	CollisionSphere->OnComponentBeginOverlap.AddDynamic(
-		this,
-		&AADProjectile::HandleBeginOverlap);
-
-	CollisionSphere->OnComponentHit.AddDynamic(
-		this,
-		&AADProjectile::HandleBlockingHit);
+	CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &AADProjectile::HandleBeginOverlap);
+	CollisionSphere->OnComponentHit.AddDynamic(this, &AADProjectile::HandleBlockingHit);
 
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(
 		TEXT("ProjectileMovement"));
@@ -65,11 +60,8 @@ void AADProjectile::InitializeProjectile(
 		UE_LOG(
 			LogTemp,
 			Error,
-			TEXT(
-				"%s received invalid initialization data."
-			),
-			*GetNameSafe(this)
-		);
+			TEXT("%s received invalid initialization data."),
+			*GetNameSafe(this));
 
 		Destroy();
 		return;
@@ -104,9 +96,7 @@ void AADProjectile::InitializeProjectile(
 		);
 	}
 
-	InTargetActor->OnDestroyed.AddUniqueDynamic(
-		this,
-		&AADProjectile::HandleTargetDestroyed);
+	InTargetActor->OnDestroyed.AddUniqueDynamic(this, &AADProjectile::HandleTargetDestroyed);
 }
 
 void AADProjectile::HandleBeginOverlap(
@@ -161,13 +151,10 @@ bool AADProjectile::ApplyEffectToTarget(AActor* InTargetActor)
 	UE_LOG(
 		LogTemp,
 		Display,
-		TEXT(
-			"%s impacted %s and applied %s."
-		),
+		TEXT("%s impacted %s and applied %s."),
 		*GetNameSafe(this),
 		*GetNameSafe(InTargetActor),
-		*GetNameSafe(EffectSpec.Data->Def)
-	);
+		*GetNameSafe(EffectSpec.Data->Def));
 
 	return true;
 }
@@ -197,9 +184,7 @@ void AADProjectile::FinishProjectile(AActor* ImpactedActor)
 
 	if (AActor* CurrentTarget = TargetActor.Get())
 	{
-		CurrentTarget->OnDestroyed.RemoveDynamic(
-			this,
-			&AADProjectile::HandleTargetDestroyed);
+		CurrentTarget->OnDestroyed.RemoveDynamic(this, &AADProjectile::HandleTargetDestroyed);
 	}
 
 	ReceiveProjectileImpact(ImpactedActor);

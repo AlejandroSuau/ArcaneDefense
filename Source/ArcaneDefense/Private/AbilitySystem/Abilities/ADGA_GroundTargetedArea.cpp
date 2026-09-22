@@ -100,6 +100,7 @@ void UADGA_GroundTargetedArea::ActivateAbility(
 		return;
 	}
 
+	PlayActivationMontage();
 	CastComponent->StartCast(CastDisplayName, CastTime);
 
 	auto* WaitTask = UAbilityTask_WaitDelay::WaitDelay(this, CastTime);
@@ -144,6 +145,7 @@ void UADGA_GroundTargetedArea::HandleCastFinished()
 		AffectedEnemies
 	);
 
+	FinishActivationMontage();
 	EndCurrentAbility(false);
 }
 

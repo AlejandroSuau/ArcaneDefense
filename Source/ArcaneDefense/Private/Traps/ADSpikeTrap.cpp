@@ -30,6 +30,15 @@ void AADSpikeTrap::HandleEnemyEnteredTrigger(AADEnemyCharacter* Enemy)
 {
 	Super::HandleEnemyEnteredTrigger(Enemy);
 
+	GetWorldTimerManager().SetTimerForNextTick(
+	FTimerDelegate::CreateWeakLambda(this, [this, Enemy]()
+	{
+		if (IsValid(Enemy))
+		{
+			ReceiveEnemyEnteredTrigger(Enemy);
+		}
+	}));
+
 	if (!HasAuthority() || !bIsArmed || !IsValid(Enemy) || Enemy->IsDead()) { return; }
 
 	ActivateSpikeTrap(Enemy);

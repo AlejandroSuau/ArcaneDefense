@@ -143,16 +143,9 @@ void UADGroundTargetingComponent::EndPlay(const EEndPlayReason::Type EndPlayReas
 
 void UADGroundTargetingComponent::UpdateTargeting()
 {
-	APawn* OwnerPawn =
-		Cast<APawn>(
-			GetOwner()
-		);
-
-	APlayerController* PlayerController =
-		IsValid(OwnerPawn)
-			? Cast<APlayerController>(
-				OwnerPawn->GetController()
-			)
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	APlayerController* PlayerController = IsValid(OwnerPawn)
+			? Cast<APlayerController>(OwnerPawn->GetController())
 			: nullptr;
 
 	if (!IsValid(PlayerController))
@@ -164,24 +157,14 @@ void UADGroundTargetingComponent::UpdateTargeting()
 		return;
 	}
 
-	TArray<TEnumAsByte<EObjectTypeQuery>>
-		GroundObjectTypes;
-
-	GroundObjectTypes.Add(
-		UEngineTypes::ConvertToObjectType(
-			ECC_WorldStatic
-		)
-	);
+	TArray<TEnumAsByte<EObjectTypeQuery>> GroundObjectTypes;
+	GroundObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
 
 	FHitResult HitResult;
-
-	const bool bHit =
-		PlayerController->
-			GetHitResultUnderCursorForObjects(
-				GroundObjectTypes,
-				false,
-				HitResult
-			);
+	const bool bHit = PlayerController->GetHitResultUnderCursorForObjects(
+		GroundObjectTypes,
+		false,
+		HitResult);
 
 	if (!bHit)
 	{
@@ -192,62 +175,30 @@ void UADGroundTargetingComponent::UpdateTargeting()
 		return;
 	}
 
-	CurrentLocation =
-		HitResult.ImpactPoint;
+	CurrentLocation = HitResult.ImpactPoint;
+	bCurrentLocationValid = IsLocationValid(HitResult);
 
-	bCurrentLocationValid =
-		IsLocationValid(
-			HitResult
-		);
+	AActor* CurrentPreview = PreviewActor.Get();
+	if (!IsValid(CurrentPreview)) { return; }
 
-	AActor* CurrentPreview =
-		PreviewActor.Get();
+	CurrentPreview->SetActorLocation(HitResult.ImpactPoint + HitResult.ImpactNormal * 2.0f);
 
-	if (!IsValid(CurrentPreview))
-	{
-		return;
-	}
-
-	CurrentPreview->SetActorLocation(
-		HitResult.ImpactPoint
-		+
-		HitResult.ImpactNormal * 2.0f
-	);
-
-	SetPreviewVisible(
-		bCurrentLocationValid
-	);
+	SetPreviewVisible(bCurrentLocationValid);
 }
 
-bool UADGroundTargetingComponent::IsLocationValid(
-	const FHitResult& HitResult
-) const
+bool UADGroundTargetingComponent::IsLocationValid(const FHitResult& HitResult) const
 {
-	const AActor* Owner =
-		GetOwner();
-
-	if (!IsValid(Owner))
-	{
-		return false;
-	}
+	const AActor* Owner = GetOwner();
+	if (!IsValid(Owner)) { return false; }
 
 	/*
 	 * Reject steep or vertical surfaces such as walls.
 	 */
-	if (HitResult.ImpactNormal.Z
-		< MinimumGroundNormalZ)
-	{
-		return false;
-	}
+	if (HitResult.ImpactNormal.Z < MinimumGroundNormalZ) { return false; }
 
-	const float DistanceSquared =
-		FVector::DistSquared(
-			Owner->GetActorLocation(),
-			HitResult.ImpactPoint
-		);
-
-	return DistanceSquared
-		<= FMath::Square(MaxRange);
+	const float DistanceSquared = FVector::DistSquared(
+		Owner->GetActorLocation(), HitResult.ImpactPoint);
+	return (DistanceSquared <= FMath::Square(MaxRange));
 }
 
 void UADGroundTargetingComponent::StopTargetingVisuals()

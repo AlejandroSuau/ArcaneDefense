@@ -485,10 +485,7 @@ void AADPlayerCharacter::ActivateAbility4(const FInputActionValue& /*Value*/)
 	
 	const auto* GroundAbility = Cast<UADGA_GroundTargetedArea>(
 		Ability4Class->GetDefaultObject());
-	if (!IsValid(GroundAbility) || !GroundAbility->GetTargetPreviewActorClass())
-	{
-		return;
-	}
+	if (!IsValid(GroundAbility) || !GroundAbility->GetTargetPreviewActorClass()) { return; }
 
 	GroundTargetingComponent->StartTargeting(
 		GroundAbility->GetTargetingRange(),

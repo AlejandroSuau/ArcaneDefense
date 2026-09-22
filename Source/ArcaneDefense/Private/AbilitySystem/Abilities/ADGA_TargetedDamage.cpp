@@ -67,12 +67,14 @@ void UADGA_TargetedDamage::ActivateAbility(
 	CachedTarget = Target;
 	CachedCastComponent = CastComponent;
 
+	PlayActivationMontage();
+	
 	if (CastTime <= 0.f)
 	{
 		HandleCastFinished();
 		return;
 	}
-
+	
 	CastComponent->StartCast(CastDisplayName, CastTime);
 
 	UAbilityTask_WaitDelay* WaitTask = UAbilityTask_WaitDelay::WaitDelay(this, CastTime);
@@ -177,6 +179,7 @@ void UADGA_TargetedDamage::HandleCastFinished()
 		IsValid(SourceCharacter) ? SourceCharacter->GetMana(): 0.0f,
 		IsValid(SourceCharacter) ? SourceCharacter->GetMaxMana() : 0.0f);
 
+	FinishActivationMontage();
 	EndCurrentAbility(false);
 }
 
@@ -202,7 +205,6 @@ void UADGA_TargetedDamage::EndAbility(
 		bReplicateEndAbility,
 		bWasCancelled);
 }
-
 
 AADEnemyCharacter* UADGA_TargetedDamage::GetValidTarget(
 	const FGameplayAbilityActorInfo* ActorInfo) const
@@ -238,10 +240,7 @@ AADEnemyCharacter* UADGA_TargetedDamage::GetValidTarget(
 
 bool UADGA_TargetedDamage::IsTargetInRange(const AActor* SourceActor, const AActor* TargetActor) const
 {
-	if (!IsValid(SourceActor) || !IsValid(TargetActor))
-	{
-		return false;
-	}
+	if (!IsValid(SourceActor) || !IsValid(TargetActor)) { return false; }
 
 	const float DistanceSquared = FVector::DistSquared(
 		SourceActor->GetActorLocation(),

@@ -8,6 +8,8 @@
 #include "Components/BoxComponent.h"
 #include "Traps/ADTrapDataAsset.h"
 #include "Traps/ADTrapPlacementSlot.h"
+#include "Engine/World.h"
+#include "Engine/OverlapResult.h"
 
 AADTrapBase::AADTrapBase()
 {
@@ -138,7 +140,7 @@ void AADTrapBase::HandleEnemyExitedTrigger(AADEnemyCharacter* Enemy)
 
 void AADTrapBase::GetValidEnemiesInActivationRange(TArray<AADEnemyCharacter*>& OutEnemies) const
 {
-	OutEnemies.Reset();
+	/*OutEnemies.Reset();
 
 	if (!IsValid(ActivationVolume))	{ return; }
 
@@ -152,6 +154,39 @@ void AADTrapBase::GetValidEnemiesInActivationRange(TArray<AADEnemyCharacter*>& O
 		if (!IsValid(Enemy) || Enemy->IsDead()) { continue; }
 
 		OutEnemies.Add(Enemy);
+	}*/
+
+	OutEnemies.Reset();
+
+	if (!IsValid(ActivationVolume))	{ return; }
+
+	UWorld* World = GetWorld();
+	if (!IsValid(World)) { return; }
+	
+	TArray<FOverlapResult> OverlapResults;
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	const FVector Center = ActivationVolume->GetComponentLocation();
+	const FQuat Rotation = ActivationVolume->GetComponentQuat();
+	const FVector HalfExtent = ActivationVolume->GetScaledBoxExtent();
+	World->OverlapMultiByObjectType(
+		OverlapResults,
+		Center,
+		Rotation,
+		ObjectQueryParams,
+		FCollisionShape::MakeBox(HalfExtent),
+		QueryParams);
+
+	for (const FOverlapResult& Result : OverlapResults)
+	{
+		AADEnemyCharacter* Enemy = Cast<AADEnemyCharacter>(Result.GetActor());
+		if (!IsValid(Enemy) || Enemy->IsDead()) { continue; }
+
+		OutEnemies.AddUnique(Enemy);
 	}
 }
 

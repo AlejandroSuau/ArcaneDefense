@@ -49,6 +49,8 @@ void UADGA_RadialEffect::ActivateAbility(
 		AffectedEnemyCount
 	);
 
+	PlayActivationMontage();
+	
 	EndAbility(Handle, ActorInfo, ActivationInfo,true,false);
 }
 
