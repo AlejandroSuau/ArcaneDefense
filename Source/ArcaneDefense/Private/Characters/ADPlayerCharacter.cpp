@@ -236,6 +236,15 @@ void AADPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			this,
 			&AADPlayerCharacter::ActivateTrap1);
 	}
+
+	if (IsValid(Trap2Action))
+	{
+		EnhancedInputComponent->BindAction(
+			Trap2Action,
+			ETriggerEvent::Started,
+			this,
+			&AADPlayerCharacter::ActivateTrap2);
+	}
 }
 
 void AADPlayerCharacter::Move(const FInputActionValue& Value)
@@ -521,6 +530,24 @@ void AADPlayerCharacter::ActivateTrap1()
 	}
 	
 	TrapPlacementComponent->StartPlacement(Trap1Data);
+}
+
+void AADPlayerCharacter::ActivateTrap2()
+{
+	if (!IsValid(TrapPlacementComponent) || !IsValid(Trap1Data)) { return; }
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (IsValid(ASC) && ASC->HasMatchingGameplayTag(ADGameplayTags::State_Casting))
+	{
+		return;
+	}
+
+	if (IsValid(GroundTargetingComponent) && GroundTargetingComponent->IsTargeting())
+	{
+		GroundTargetingComponent->CancelTargeting();
+	}
+	
+	TrapPlacementComponent->StartPlacement(Trap2Data);
 }
 
 UADGameplayAbility* AADPlayerCharacter::GetAbilityInstance(

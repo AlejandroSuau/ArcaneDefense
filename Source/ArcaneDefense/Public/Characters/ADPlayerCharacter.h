@@ -269,6 +269,20 @@ protected:
 		Category = "Traps",
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UADTrapDataAsset> Trap1Data;
+
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Input",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> Trap2Action;
+	
+	UPROPERTY(
+		EditDefaultsOnly,
+		BlueprintReadOnly,
+		Category = "Traps",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UADTrapDataAsset> Trap2Data;
 	
 	bool bCameraLookActive = false;
 
@@ -287,6 +301,7 @@ private:
 	void ActivateAbility4(const FInputActionValue& Value);
 
 	void ActivateTrap1();
+	void ActivateTrap2();
 	
 	void ApplyInitialResources();
 	bool ApplyCoinDelta(float Delta);

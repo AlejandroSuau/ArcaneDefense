@@ -13,6 +13,9 @@ void UADAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, fl
 	} else if (Attribute == GetManaAttribute())
 	{
 		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxMana());
+	} else if (Attribute == GetMoveSpeedMultiplierAttribute())
+	{
+		NewValue = FMath::Max(0.0f,NewValue);
 	}
 }
 
@@ -22,8 +25,7 @@ void UADAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
-		SetHealth(
-			FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
 		if (GetHealth() == 0.f)
 		{
 			OnOutOfHealth.Broadcast();
@@ -31,8 +33,7 @@ void UADAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 		
 	} else if (Data.EvaluatedData.Attribute == GetManaAttribute())
 	{
-		SetMana(
-			FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
+		SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
 	}
 }
 

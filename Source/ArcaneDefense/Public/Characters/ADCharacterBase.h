@@ -22,6 +22,11 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
 	float, MaxMana
 );
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+	FADMoveSpeedMultiplierChangedSignature,
+	float, MoveSpeedMultiplier
+);
+
 /**
  * Base class for all living characters in Arcane Defense.
  *
@@ -58,6 +63,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Attributes")
 	float GetMaxMana() const;
 
+	UFUNCTION(BlueprintPure, Category = "Attributes")
+	float GetMoveSpeedMultiplier() const;
+
 	/**
 	 * Returns whether this character has entered its death state.
 	 */
@@ -69,6 +77,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Attributes")
 	FADManaChangedSignature OnManaChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Attributes")
+	FADMoveSpeedMultiplierChangedSignature OnMoveSpeedMultiplierChanged;
 
 protected:
 	virtual void BeginPlay() override;
@@ -87,6 +98,14 @@ private:
 	void InitializeAbilitySystem();
 	void ApplyInitialAttributes();
 
+	void HandleHealthAttributeChanged(const FOnAttributeChangeData& Data);
+	void HandleMaxHealthAttributeChanged(const FOnAttributeChangeData& Data);
+	void HandleManaAttributeChanged(const FOnAttributeChangeData& Data);
+	void HandleMaxManaAttributeChanged(const FOnAttributeChangeData& Data);
+	void HandleMoveSpeedMultiplierChanged(const FOnAttributeChangeData& Data);
+
+	void ApplyMoveSpeedMultiplier(float Multiplier);
+	
 	/** Coordinates abilities, effects, attributes, and gameplay tags. */
 	UPROPERTY(
 		VisibleAnywhere,
@@ -118,8 +137,5 @@ private:
 		meta = (AllowPrivateAccess = "true"))
 	bool bIsDead = false;
 
-	void HandleHealthAttributeChanged(const FOnAttributeChangeData& Data);
-	void HandleMaxHealthAttributeChanged(const FOnAttributeChangeData& Data);
-	void HandleManaAttributeChanged(const FOnAttributeChangeData& Data);
-	void HandleMaxManaAttributeChanged(const FOnAttributeChangeData& Data);
+	float BaseMaxWalkSpeed = 0.0f;
 };

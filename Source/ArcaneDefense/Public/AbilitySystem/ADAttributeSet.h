@@ -62,11 +62,18 @@ protected:
 	UPROPERTY(
 		BlueprintReadOnly,
 		Category = "Attributes|Mana")
-	FGameplayAttributeData MaxMana;	
+	FGameplayAttributeData MaxMana;
+
+	/* Movement speed multiplier. */
+	UPROPERTY(
+		BlueprintReadOnly,
+		Category = "Movement")
+	FGameplayAttributeData MoveSpeedMultiplier;
 
 public:
 	AD_ATTRIBUTE_ACCESSORS(UADAttributeSet, Health)
 	AD_ATTRIBUTE_ACCESSORS(UADAttributeSet, MaxHealth)
 	AD_ATTRIBUTE_ACCESSORS(UADAttributeSet, Mana)
 	AD_ATTRIBUTE_ACCESSORS(UADAttributeSet, MaxMana)
+	AD_ATTRIBUTE_ACCESSORS(UADAttributeSet, MoveSpeedMultiplier)
 };

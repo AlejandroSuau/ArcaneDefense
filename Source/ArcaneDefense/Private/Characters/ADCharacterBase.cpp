@@ -10,11 +10,8 @@ AADCharacterBase::AADCharacterBase()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(
-		TEXT("AbilitySystemComponent"));
-
-	AttributeSet = CreateDefaultSubobject<UADAttributeSet>(
-		TEXT("AttributeSet"));
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AttributeSet = CreateDefaultSubobject<UADAttributeSet>(TEXT("AttributeSet"));
 }
 
 void AADCharacterBase::BeginPlay()
@@ -25,9 +22,7 @@ void AADCharacterBase::BeginPlay()
 
 	if (IsValid(AttributeSet))
 	{
-		AttributeSet->OnOutOfHealth.AddUObject(
-			this,
-			&AADCharacterBase::HandleDeath);
+		AttributeSet->OnOutOfHealth.AddUObject(this, &AADCharacterBase::HandleDeath);
 	}
 	
 	ApplyInitialAttributes();
@@ -72,31 +67,6 @@ void AADCharacterBase::HandleDeath()
 	ReceiveDeath();
 }
 
-float AADCharacterBase::GetHealth() const
-{
-	return IsValid(AttributeSet) ? AttributeSet->GetHealth() : 0.f;
-}
-
-float AADCharacterBase::GetMaxHealth() const
-{
-	return IsValid(AttributeSet) ? AttributeSet->GetMaxHealth() : 0.f;
-}
-
-float AADCharacterBase::GetMana() const
-{
-	return IsValid(AttributeSet) ? AttributeSet->GetMana() : 0.f;
-}
-
-float AADCharacterBase::GetMaxMana() const
-{
-	return IsValid(AttributeSet) ? AttributeSet->GetMaxMana() : 0.f;
-}
-
-bool AADCharacterBase::IsDead() const
-{
-	return bIsDead;
-}
-
 void AADCharacterBase::InitializeAbilitySystem()
 {
 	if (!ensureMsgf(
@@ -136,29 +106,24 @@ void AADCharacterBase::InitializeAbilitySystem()
 		UADAttributeSet::GetMaxManaAttribute()).AddUObject(
 			this,
 			&AADCharacterBase::HandleMaxManaAttributeChanged);
+
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
+		UADAttributeSet::GetMoveSpeedMultiplierAttribute()).AddUObject(
+			this,
+			&AADCharacterBase::HandleMoveSpeedMultiplierChanged);
 }
 
 void AADCharacterBase::ApplyInitialAttributes()
 {
-	if (!IsValid(AttributeSet))
-	{
-		return;
-	}
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (!IsValid(AttributeSet) || !InitialAttributesEffect || !Movement) { return; }
 
-	if (!InitialAttributesEffect)
-	{
-		UE_LOG(
-			LogTemp,
-			Warning,
-			TEXT("%s does not have an Initial Attributes Effect"),
-			*GetNameSafe(this));
-		return;
-	}
-
-	FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+	BaseMaxWalkSpeed = Movement->MaxWalkSpeed;
+	
+	auto EffectContext = AbilitySystemComponent->MakeEffectContext();
 	EffectContext.AddSourceObject(this);
 
-	const FGameplayEffectSpecHandle EffectSpec = AbilitySystemComponent->MakeOutgoingSpec(
+	const auto EffectSpec = AbilitySystemComponent->MakeOutgoingSpec(
 		InitialAttributesEffect,
 		1.f,
 		EffectContext);
@@ -174,6 +139,36 @@ void AADCharacterBase::ApplyInitialAttributes()
 	}
 
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
+}
+
+float AADCharacterBase::GetHealth() const
+{
+	return IsValid(AttributeSet) ? AttributeSet->GetHealth() : 0.f;
+}
+
+float AADCharacterBase::GetMaxHealth() const
+{
+	return IsValid(AttributeSet) ? AttributeSet->GetMaxHealth() : 0.f;
+}
+
+float AADCharacterBase::GetMana() const
+{
+	return IsValid(AttributeSet) ? AttributeSet->GetMana() : 0.f;
+}
+
+float AADCharacterBase::GetMaxMana() const
+{
+	return IsValid(AttributeSet) ? AttributeSet->GetMaxMana() : 0.f;
+}
+
+float AADCharacterBase::GetMoveSpeedMultiplier() const
+{
+	return IsValid(AttributeSet) ? AttributeSet->GetMoveSpeedMultiplier() : 0.f;
+}
+
+bool AADCharacterBase::IsDead() const
+{
+	return bIsDead;
 }
 
 void AADCharacterBase::HandleHealthAttributeChanged(const FOnAttributeChangeData& Data)
@@ -194,4 +189,13 @@ void AADCharacterBase::HandleManaAttributeChanged(const FOnAttributeChangeData& 
 void AADCharacterBase::HandleMaxManaAttributeChanged(const FOnAttributeChangeData& Data)
 {
 	OnManaChanged.Broadcast(GetMana(), Data.NewValue);
+}
+
+void AADCharacterBase::HandleMoveSpeedMultiplierChanged(const FOnAttributeChangeData& Data)
+{
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (!IsValid(Movement)) { return; }
+
+	Movement->MaxWalkSpeed = BaseMaxWalkSpeed * FMath::Max(0.f, Data.NewValue);
+	OnMoveSpeedMultiplierChanged.Broadcast(Data.NewValue);
 }

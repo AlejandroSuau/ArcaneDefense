@@ -36,4 +36,9 @@ namespace ADGameplayTags
 		Data_Resource_Coins,
 		"Data.Resource.Coins",
 		"SetByCaller magnitude used for coin transactions.");
+
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(
+		State_Slowed,
+		"State.Slowed",
+		"Actor movement speed is currently reduced.");
 }
