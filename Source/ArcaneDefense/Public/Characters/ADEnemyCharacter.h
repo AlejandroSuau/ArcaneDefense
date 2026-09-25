@@ -7,7 +7,6 @@
 
 class AADDefenseObjective;
 class UGameplayEffect;
-
 class AADEnemyCharacter;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(

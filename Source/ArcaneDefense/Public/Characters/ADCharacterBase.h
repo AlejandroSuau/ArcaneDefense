@@ -90,8 +90,7 @@ protected:
 	UFUNCTION(
 		BlueprintImplementableEvent,
 		Category = "Combat",
-		meta = (DisplayName = "Death")
-	)
+		meta = (DisplayName = "Death"))
 	void ReceiveDeath();
 
 private:

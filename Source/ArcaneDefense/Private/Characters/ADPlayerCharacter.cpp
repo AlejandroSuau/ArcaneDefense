@@ -66,6 +66,11 @@ void AADPlayerCharacter::ApplyInitialResources()
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!IsValid(ASC)) { return; }
 
+	ASC->GetGameplayAttributeValueChangeDelegate(
+		UADPlayerResourceAttributeSet::GetCoinsAttribute()).AddUObject(
+			this,
+			&AADPlayerCharacter::HandleCoinsChanged);
+
 	FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
 	EffectContext.AddSourceObject(this);
 
@@ -308,7 +313,7 @@ void AADPlayerCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	ApplyInitialResources();
-
+	
 	GrantStartupAbility(Ability1Class);
 	GrantStartupAbility(Ability2Class);
 	GrantStartupAbility(Ability3Class);
@@ -651,4 +656,9 @@ bool AADPlayerCharacter::ApplyCoinDelta(const float Delta)
 	ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
 
 	return true;
+}
+
+void AADPlayerCharacter::HandleCoinsChanged(const FOnAttributeChangeData& Data)
+{
+	OnCoinsChanged.Broadcast(Data.NewValue);
 }

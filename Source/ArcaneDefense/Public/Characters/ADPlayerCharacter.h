@@ -19,6 +19,11 @@ class UGameplayEffect;
 class UADTrapPlacementComponent;
 class UADTrapDataAsset;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+	FADCoinsChangedSignature,
+	float, Coins
+);
+
 /**
  * Player-controlled character.
  *
@@ -52,6 +57,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	float GetCoins() const;
+
+	UPROPERTY(BlueprintAssignable, Category = "Resources")
+	FADCoinsChangedSignature OnCoinsChanged;
 
 	UFUNCTION(BlueprintPure, Category = "Combat|Casting")
 	UADCastComponent* GetCastComponent() const;
@@ -309,4 +317,6 @@ private:
 	void CancelAbilitiesInterruptedByMovement();
 
 	void GrantStartupAbility(TSubclassOf<UGameplayAbility> AbilityClass);
+
+	void HandleCoinsChanged(const FOnAttributeChangeData& Data);
 };
