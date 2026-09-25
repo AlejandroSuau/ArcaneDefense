@@ -8,6 +8,19 @@
 class UADAttributeSet;
 class UAbilitySystemComponent;
 class UGameplayEffect;
+struct FOnAttributeChangeData;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
+	FADHealthChangedSignature,
+	float, CurrentHealth,
+	float, MaxHealth
+);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
+	FADManaChangedSignature,
+	float, CurrentMana,
+	float, MaxMana
+);
 
 /**
  * Base class for all living characters in Arcane Defense.
@@ -50,6 +63,12 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	bool IsDead() const;
+
+	UPROPERTY(BlueprintAssignable, Category = "Attributes")
+	FADHealthChangedSignature OnHealthChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Attributes")
+	FADManaChangedSignature OnManaChanged;
 
 protected:
 	virtual void BeginPlay() override;
@@ -98,4 +117,9 @@ private:
 		Category = "Combat",
 		meta = (AllowPrivateAccess = "true"))
 	bool bIsDead = false;
+
+	void HandleHealthAttributeChanged(const FOnAttributeChangeData& Data);
+	void HandleMaxHealthAttributeChanged(const FOnAttributeChangeData& Data);
+	void HandleManaAttributeChanged(const FOnAttributeChangeData& Data);
+	void HandleMaxManaAttributeChanged(const FOnAttributeChangeData& Data);
 };

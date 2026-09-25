@@ -3,6 +3,8 @@
 #include "AbilitySystem/ADAttributeSet.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayEffectTypes.h"
 
 AADCharacterBase::AADCharacterBase()
 {
@@ -114,6 +116,26 @@ void AADCharacterBase::InitializeAbilitySystem()
 	}
 
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
+		UADAttributeSet::GetHealthAttribute()).AddUObject(
+			this,
+			&AADCharacterBase::HandleHealthAttributeChanged);
+
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
+		UADAttributeSet::GetMaxHealthAttribute()).AddUObject(
+			this,
+			&AADCharacterBase::HandleMaxHealthAttributeChanged);
+
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
+		UADAttributeSet::GetManaAttribute()).AddUObject(
+			this,
+			&AADCharacterBase::HandleManaAttributeChanged);
+
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
+		UADAttributeSet::GetMaxManaAttribute()).AddUObject(
+			this,
+			&AADCharacterBase::HandleMaxManaAttributeChanged);
 }
 
 void AADCharacterBase::ApplyInitialAttributes()
@@ -152,4 +174,24 @@ void AADCharacterBase::ApplyInitialAttributes()
 	}
 
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
+}
+
+void AADCharacterBase::HandleHealthAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	OnHealthChanged.Broadcast(Data.NewValue,GetMaxHealth());
+}
+
+void AADCharacterBase::HandleMaxHealthAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	OnHealthChanged.Broadcast(GetHealth(), Data.NewValue);
+}
+
+void AADCharacterBase::HandleManaAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	OnManaChanged.Broadcast(Data.NewValue, GetMaxMana());
+}
+
+void AADCharacterBase::HandleMaxManaAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	OnManaChanged.Broadcast(GetMana(), Data.NewValue);
 }

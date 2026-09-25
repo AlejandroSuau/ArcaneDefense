@@ -86,16 +86,10 @@ void UADTargetingComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 bool UADTargetingComponent::IsValidTargetCandidate(const AADEnemyCharacter* Candidate) const
 {
-	if (!IsValid(Candidate))
-	{
-		return false;
-	}
+	if (!IsValid(Candidate)) { return false; }
 
 	const AActor* OwnerActor = GetOwner();
-	if (!IsValid(OwnerActor))
-	{
-		return false;		
-	}
+	if (!IsValid(OwnerActor)) { return false; }
 
 	const float DistanceSquared = FVector::DistSquared(
 		OwnerActor->GetActorLocation(),
@@ -106,10 +100,7 @@ bool UADTargetingComponent::IsValidTargetCandidate(const AADEnemyCharacter* Cand
 void UADTargetingComponent::SetCurrentTarget(AADEnemyCharacter* NewTarget)
 {
 	AADEnemyCharacter* PreviousTarget = CurrentTarget.Get();
-	if (PreviousTarget == NewTarget)
-	{
-		return;
-	}
+	if (PreviousTarget == NewTarget) { return; }
 
 	if (IsValid(PreviousTarget))
 	{
@@ -136,9 +127,7 @@ void UADTargetingComponent::SetCurrentTarget(AADEnemyCharacter* NewTarget)
 		*GetNameSafe(PreviousTarget),
 		*GetNameSafe(NewTarget));
 	
-	OnTargetChanged.Broadcast(
-		PreviousTarget,
-		NewTarget);
+	OnTargetChanged.Broadcast(PreviousTarget, NewTarget);
 }
 
 void UADTargetingComponent::HandleCurrentTargetDestroyed(AActor* DestroyedActor)
